@@ -8,14 +8,14 @@ import android.view.View;
 
 //自前のRecycleItemClickListener
 //既存のListenerではpositionの位置を得られないため
-public class MyRecyclerItemClickListener implements RecyclerView.OnItemTouchListener {
+public class CustomRecyclerItemClickListener implements RecyclerView.OnItemTouchListener {
 
     //protected void onItemClick(View view, int position);
 
     private GestureDetector mGestureDetector;
     private OnItemClickListener mOnItemClickListener;
 
-    public MyRecyclerItemClickListener(Context context, final RecyclerView recyclerView, OnItemClickListener listener){
+    public CustomRecyclerItemClickListener(Context context, final RecyclerView recyclerView, OnItemClickListener listener){
         mOnItemClickListener = listener;
         //mUserObjectArrayList = UserArrayList;
         mGestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener(){

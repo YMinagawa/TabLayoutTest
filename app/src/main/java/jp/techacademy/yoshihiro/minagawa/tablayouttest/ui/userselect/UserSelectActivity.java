@@ -22,7 +22,7 @@ import io.realm.RealmResults;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.MeasuredDateAndDataObject;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.UserObject;
-import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.MyRecyclerItemClickListener;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomRecyclerItemClickListener;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.TabMainActivity;
 
 public class UserSelectActivity extends AppCompatActivity {
@@ -81,7 +81,7 @@ public class UserSelectActivity extends AppCompatActivity {
 
         //独自に作成したRecyclerItemClickListenerを実装
         mRecyclerView.addOnItemTouchListener(
-                new MyRecyclerItemClickListener(UserSelectActivity.this, mRecyclerView, new MyRecyclerItemClickListener.OnItemClickListener(){
+                new CustomRecyclerItemClickListener(UserSelectActivity.this, mRecyclerView, new CustomRecyclerItemClickListener.OnItemClickListener(){
                     @Override
                     public void onItemClick(View view, int position){
 

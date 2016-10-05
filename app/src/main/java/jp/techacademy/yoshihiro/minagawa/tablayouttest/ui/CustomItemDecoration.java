@@ -12,7 +12,7 @@ import android.view.View;
  * Created by ym on 2016/10/01.
  */
 
-public class MyItemDecoration extends RecyclerView.ItemDecoration{
+public class CustomItemDecoration extends RecyclerView.ItemDecoration{
 
 
 
@@ -22,7 +22,7 @@ public class MyItemDecoration extends RecyclerView.ItemDecoration{
 
     private Drawable mDivider;
 
-    public MyItemDecoration(Context context) {
+    public CustomItemDecoration(Context context) {
         final TypedArray a = context.obtainStyledAttributes(ATTRS);
         mDivider = a.getDrawable(0);
         a.recycle();
