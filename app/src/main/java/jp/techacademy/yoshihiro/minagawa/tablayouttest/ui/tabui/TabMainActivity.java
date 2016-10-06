@@ -114,7 +114,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         //フラグメントの設定を行い、そこにViewを加える
         //その後、View内のアイテムのリスナーの設定を行う
         mFL_Camera = new FrameLayout(this);
-        mView_camera_config = getLayoutInflater().inflate(R.layout.view_camera_config, null);
+        mView_camera_config = getLayoutInflater().inflate(R.layout.view_camera_presetting, null);
         mFL_Camera.addView(mView_camera_config);
         FloatingActionButton fab_camera = (FloatingActionButton)mView_camera_config.findViewById(R.id.fab_camera);
         fab_camera.setOnClickListener(new View.OnClickListener() {

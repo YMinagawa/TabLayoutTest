@@ -7,10 +7,15 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Camera;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
@@ -19,10 +24,18 @@ import android.media.ImageReader;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.view.animation.RotateAnimation;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.SeekBar;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -33,7 +46,7 @@ import java.util.List;
 
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
 
-public class CameraActivity extends Activity implements CameraInterface{
+public class CameraActivity extends Activity implements CameraInterface, SensorEventListener{
 
     private static final String TAG = "Camera2App";
 
@@ -46,31 +59,224 @@ public class CameraActivity extends Activity implements CameraInterface{
     private BackgroundThreadHelper mThread;
     private CustomCamera mCamera;
 
+    private ImageButton mIbtn_shutter;
+    private ImageButton mIbtn_camera_config;
+    private ImageButton mIbtn_ae;
+    private boolean mIsAEState;
+    private Button mBtn;
+    private SeekBar mSbISO;
+    private SeekBar mSbExopsureTime;
+    private Range<Integer> mRangeISO;
+    private Range<Long> mRangeExposureTime;
+
+    private FrameLayout mFrameLayout;
+    private View mCameraView;
+    private View mCameraConfigView;
+
+    private int mISO;
+    private long mDurationTime;
+    private long mExposureTime;
+
+    AnimationController mAnimationController = new AnimationController();
+    SensorManager mSensorManager = null;
+    private boolean mIsRegisteredSensor;
+    float touchY;
+    float moveY;
+    boolean isLandScape;
+    RotateAnimation mRotateAnimation;
+
+    private Toast mToast;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_camera);
+
+        //センサーマネージャーの取得
+        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        mIsRegisteredSensor = false;
+
+        //Camera2 APIを別クラスへ切り出し
+        mCamera = new CustomCamera();
+        mCamera.setCameraActivity(this);
+        mCamera.setInterface(this);
+
+        //レイアウトの設定
+        //FrameLayoutの上にViewを貼り付ける
+        mFrameLayout = new FrameLayout(this);
+        setContentView(mFrameLayout);
+        mCameraView = getLayoutInflater().inflate(R.layout.activity_camera, null);
+        mFrameLayout.addView(mCameraView);
 
         //AutoFixTextureViewはTextureViewのサブクラス
         //設定したAspect比に応じてサイズが自動的に切り替える機能が提供されている
-        mTextureView = (AutoFitTextureView) findViewById(R.id.texture);
+        //もしconfig画面が出ている場合、Textureに触れるとconfig画面を閉じる
+        mTextureView = (AutoFitTextureView) mCameraView.findViewById(R.id.texture);
+        mTextureView.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                if(mFrameLayout.getChildCount()==2){
+                    mFrameLayout.removeView(mCameraConfigView);
+                }
+            }
+        });
         mThread = new BackgroundThreadHelper();
 
-        // Camera2 APIを別クラスへ切り出し（サンプルなので！ロジックが混ざらないように）
-        mCamera = new CustomCamera();
-        mCamera.setInterface(this);
-        findViewById(R.id.picture).setOnClickListener(new View.OnClickListener() {
+        //シャッター用のボタン
+        mIbtn_shutter = (ImageButton)findViewById(R.id.ibtn_shutter);
+        mIbtn_shutter.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mCamera.takePicture();
             }
         });
+
+        //カメラコンフィグ用のボタン
+        mCameraConfigView = getLayoutInflater().inflate(R.layout.view_camera_config, null);
+        mIbtn_camera_config = (ImageButton)findViewById(R.id.ibtn_camera_config);
+        mIbtn_camera_config.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                //Viewの数で削除するかどうかを決める
+
+                if(mFrameLayout.getChildCount() !=2 && mIsAEState == false){
+                    mFrameLayout.addView(mCameraConfigView);
+                }else if(mFrameLayout.getChildCount() == 2) {
+                    mFrameLayout.removeView(mCameraConfigView);
+                }else if(mFrameLayout.getChildCount() !=2 && mIsAEState == true){
+                    if(mToast != null){
+                        mToast.cancel();
+                    }
+                    mToast = new Toast(CameraActivity.this);
+                    mToast.makeText(CameraActivity.this, "Turn OFF AE !!", Toast.LENGTH_SHORT).show();
+                }
+
+
+
+            }
+        });
+
+        //AE ON/OFF用のボタン
+        mIbtn_ae = (ImageButton)findViewById(R.id.ibtn_ae);
+        mIsAEState = true;
+        mIbtn_ae.setActivated(mIsAEState);
+        mIbtn_ae.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mIsAEState = !mIsAEState;
+                mIbtn_ae.setActivated(mIsAEState);
+                if(mIsAEState == true){
+                    mCamera.changeAEON();
+
+                    if(mFrameLayout.getChildCount() == 2){
+                        mFrameLayout.removeView(mCameraConfigView);
+                    }
+                }else if(mIsAEState == false){
+                    mCamera.changeAEOFF();
+                }
+            }
+        });
+
+        //SeekBar ISOの設定
+        mSbISO = (SeekBar)mCameraConfigView.findViewById(R.id.seekBar_iso);
+        mSbISO.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                //ツマミをドラッグしたときに呼ばれる
+                //次の表示にすぐに切り替えられるように消す
+                if(mToast != null) {
+                    mToast.cancel();
+                }
+
+                mToast = new Toast(CameraActivity.this);
+                View toastlayout = getLayoutInflater().inflate(R.layout.toast_layout, null);
+                TextView toastText = (TextView)toastlayout.findViewById(R.id.textView_toast);
+                //seekbarのmin値は0で固定で変えられないので、
+                //得られた値をmin分だけ底上げした値を用いる
+                mISO = progress + mRangeISO.getLower();
+                toastText.setText("ISO " + mISO);
+                mToast.setView(toastlayout);
+                //mToast = Toast.makeText(CameraActivity.this, "ISO " + progress, Toast.LENGTH_SHORT);
+                mToast.show();
+
+                mCamera.changeExposureParam(mISO, mExposureTime, mDurationTime);
+
+
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                //ツマミに触れたときに呼ばれる
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                //ツマミを離したときに呼ばれる
+
+            }
+        });
+
+        //SeekBar Exposure Timeの設定
+        mSbExopsureTime = (SeekBar)mCameraConfigView.findViewById(R.id.seekBar_exptime);
+        mSbExopsureTime.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                //次の表示にすぐに切り替えられるように消す
+                if(mToast != null) {
+                    mToast.cancel();
+                }
+
+                mToast = new Toast(CameraActivity.this);
+                View toastlayout = getLayoutInflater().inflate(R.layout.toast_layout, null);
+                TextView toastText = (TextView)toastlayout.findViewById(R.id.textView_toast);
+                //seekbarのmin値は0で固定で変えられないので、
+                //得られた値をmin分だけ底上げした値を用いる
+                mExposureTime = (int)(progress + mRangeExposureTime.getLower());
+                toastText.setText("ExposureTime " + mExposureTime);
+                mToast.setView(toastlayout);
+                mToast.show();
+
+                mCamera.changeExposureParam(mISO, mExposureTime, mDurationTime);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+
+
+        //テスト
+        mBtn = (Button)mCameraConfigView.findViewById(R.id.btn_test);
+        mBtn.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                testMethod();
+            }
+        });
+
     }
+
+    public void testMethod(){
+        Log.d("mTestCameraActivity", "test");
+    }
+
 
     @Override
     public void onResume() {
         super.onResume();
         mThread.start();
+
+        List<Sensor> sensors = mSensorManager.getSensorList(Sensor.TYPE_ORIENTATION);
+        if(sensors.size() > 0){
+            Sensor sensor = sensors.get(0);
+            mIsRegisteredSensor = mSensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_FASTEST);
+        }
 
         if (mTextureView.isAvailable()) {
             // Preview用のTextureViewの準備ができている
@@ -83,6 +289,12 @@ public class CameraActivity extends Activity implements CameraInterface{
 
     @Override
     public void onPause() {
+
+        if(mIsRegisteredSensor){
+            mSensorManager.unregisterListener(this);
+            mIsRegisteredSensor = false;
+        }
+
         closeCamera();
         mThread.stop();
         super.onPause();
@@ -167,11 +379,23 @@ public class CameraActivity extends Activity implements CameraInterface{
         //条件に適するカメラIDをsetUpCameraOutputs()で選別する
         //カメラID選別の条件はsetUpCameraOutputs()に記載
         String cameraId = setUpCameraOutputs(width, height);
+
         CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+
         try {
             if (!mCamera.isLocked()) {
                 throw new RuntimeException("Time out waiting to lock camera opening.");
             }
+
+            //最適なCamera(ID)からパラメーターを入手
+            CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
+            mRangeISO = characteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+            //SeekBarにminを設定できないため、maxをminだけ下げておき、出力時に+minする
+            mSbISO.setMax(mRangeISO.getUpper() - mRangeISO.getLower());
+            //Log.d("mTestCameraActivity", "min = " + mRangeISO.getLower());
+            mRangeExposureTime = characteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+            mSbExopsureTime.setMax((int)(mRangeExposureTime.getUpper() - mRangeExposureTime.getLower()));
+
             manager.openCamera(cameraId, mCamera.stateCallback, mThread.getHandler());
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -359,6 +583,29 @@ public class CameraActivity extends Activity implements CameraInterface{
             return Long.signum((long) lhs.getWidth() * lhs.getHeight() -
                     (long) rhs.getWidth() * rhs.getHeight());
         }
+    }
+
+    //センサーに変化があったときのリスナー
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if(event.sensor.getType() == Sensor.TYPE_ORIENTATION){
+            ImageButton[] ibtns = {mIbtn_shutter};
+            mAnimationController.rotateScreen(event, ibtns);
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
+
+    //AEmode時の最適なDurationFrame, ISO, ExposureTimeを受け取る
+    public void setCameraParam(int ISO, long ExposureTime, long DurationTime){
+        mISO = ISO;
+        mExposureTime = ExposureTime;
+        mDurationTime = DurationTime;
+        mSbISO.setProgress(mISO);
+        mSbExopsureTime.setProgress((int)mDurationTime);
     }
 
 }
