@@ -8,6 +8,7 @@ import android.view.View;
 
 //自前のRecycleItemClickListener
 //既存のListenerではpositionの位置を得られないため
+//positionの値が得られるように実装しなおし。
 public class CustomRecyclerItemClickListener implements RecyclerView.OnItemTouchListener {
 
     //protected void onItemClick(View view, int position);

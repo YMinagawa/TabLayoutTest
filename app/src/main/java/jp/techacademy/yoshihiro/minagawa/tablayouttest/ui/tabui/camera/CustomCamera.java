@@ -54,6 +54,8 @@ public class CustomCamera {
     private long mExposureTime;
     private long mFrameDuration;
 
+    private boolean mIsAEState;
+
     public void setInterface(CameraInterface param) {
         mInterface = param;
     }
@@ -213,9 +215,9 @@ public class CustomCamera {
         private void process(CaptureResult result) {
             switch (mState) {
                 case STATE_PREVIEW: {
-                    Log.e("mTestCustomCamera", "SensorSensitivity = " + result.get(CaptureResult.SENSOR_SENSITIVITY));
-                    Log.e("mTestCustomCamera", "ExposureTime = " + result.get(CaptureResult.SENSOR_EXPOSURE_TIME));
-                    Log.e("mTestCustomCamera", "FrameDuration = " + result.get(CaptureResult.SENSOR_FRAME_DURATION));
+                    //Log.e("mTestCustomCamera", "SensorSensitivity = " + result.get(CaptureResult.SENSOR_SENSITIVITY));
+                    //Log.e("mTestCustomCamera", "ExposureTime = " + result.get(CaptureResult.SENSOR_EXPOSURE_TIME));
+                    //Log.e("mTestCustomCamera", "FrameDuration = " + result.get(CaptureResult.SENSOR_FRAME_DURATION));
                     mISO = result.get(CaptureResult.SENSOR_SENSITIVITY);
                     mExposureTime = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
                     mFrameDuration = result.get(CaptureResult.SENSOR_FRAME_DURATION);
@@ -224,24 +226,31 @@ public class CustomCamera {
                 }
                 case STATE_WAITING_LOCK: {
                     // 焦点が合った時に静止画を撮影する（AF）
+                    Log.d("mTestCustomCamera", "State Waiting Lock");
+                    Log.d("mTestCustomCamera", "AfState =" + result.get(CaptureResult.CONTROL_AF_STATE));
                     Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
                     if (afState == null) {
+                        Log.d("mTestCustomCamera", "afState == null");
                         captureStillPicture();
                     } else if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
                             CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
                         // CONTROL_AE_STATE がnullのデバイスがある
+                        Log.d("mTestCustomCamera", "CONTROL_AE_STATE == null?");
                         Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                         if (aeState == null ||
                                 aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
                             mState = STATE_PICTURE_TAKEN;
+                            Log.d("mTestCustomCamera", "State Picture Taken");
                             captureStillPicture();
                         } else {
                             runPrecaptureSequence();
                         }
                     }
+                    Log.d("mTestCustomCamera", "all through");
                     break;
                 }
                 case STATE_WAITING_PRECAPTURE: {
+                    Log.d("mTestCustomCamera", "State Waiting precapture");
                     // キャプチャ準備中
                     Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                     if (aeState == null ||  // CONTROL_AE_STATE がnullのデバイスがある
@@ -265,6 +274,8 @@ public class CustomCamera {
 
     };
 
+
+    //静止画の撮影を行う
     private void captureStillPicture() {
         try {
             if (null == mCameraDevice) {
@@ -272,18 +283,41 @@ public class CustomCamera {
             }
             // 静止画の撮影を開始する
             final CaptureRequest.Builder captureBuilder =
-                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                        mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+
+
             captureBuilder.addTarget(mInterface.getImageRenderSurface());
-
             // 静止画の撮影モードを指定（AF,AE）
-            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-            captureBuilder.set(CaptureRequest.CONTROL_AE_MODE,
-                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+            // 露光のパラメーターに変更があった場合にはここに記述?
+            // White balanceもここに書く？
 
+
+            if(mIsAEState == true) {
+                captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                        CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                captureBuilder.set(CaptureRequest.CONTROL_AE_MODE,
+                        CameraMetadata.CONTROL_AE_MODE_ON_AUTO_FLASH);
+            }else if(mIsAEState == false){
+                //AEが外れている時
+                //イメージがキャプチャーされている間にフォーカスされることは望まない
+                captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                        CameraMetadata.CONTROL_AF_MODE_OFF);
+                captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                        CameraMetadata.CONTROL_AF_TRIGGER_IDLE);
+
+
+                //AEをOFFにして各パラメーター値(ISO, ExposureTime, FrameDuration)を入れる
+                captureBuilder.set(CaptureRequest.CONTROL_AE_MODE,
+                        CameraMetadata.CONTROL_AE_MODE_OFF);
+                captureBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, mISO);
+                captureBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, mExposureTime);
+                captureBuilder.set(CaptureRequest.SENSOR_FRAME_DURATION, mFrameDuration);
+
+            }
             // 現在のカメラの向きを指定する（0～270度）
             int rotation = mInterface.getRotation();
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, ORIENTATIONS.get(rotation));
+
 
             CameraCaptureSession.CaptureCallback CaptureCallback
                     = new CameraCaptureSession.CaptureCallback() {
@@ -292,12 +326,16 @@ public class CustomCamera {
                 public void onCaptureCompleted(CameraCaptureSession session,
                                                CaptureRequest request,
                                                TotalCaptureResult result) {
+                    super.onCaptureCompleted(session, request, result);
                     // 静止画撮影が完了した時に呼ばれるコールバック
-                    Log.e(TAG, "onCaptureCompleted Picture Saved");
+                    Log.i(TAG, "onCaptureCompleted Picture Saved");
                     // プレビュー用の設定に戻す
                     unlockFocus();
                 }
             };
+
+            //撮影するJPEGの質を100まで上げる
+            captureBuilder.set(CaptureRequest.JPEG_QUALITY, (byte)100);
 
             mCaptureSession.stopRepeating(); // プレビューを一旦停止する
             // 静止画を撮影する（captureBuilder）
@@ -321,7 +359,7 @@ public class CustomCamera {
         }
     }
 
-    //AEがONになったとき
+    //AEがONになったときCameraActivityから呼び出される
     public void changeAEON(){
         if (mCaptureSession != null) {
             try {
@@ -331,6 +369,11 @@ public class CustomCamera {
                 // 露出、フラッシュは自動モードを仕様する
                 mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
                         CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+
+                //ホワイトバランス
+                //mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE,
+                //        CaptureRequest.CONTROL_AWB_MODE_AUTO);
+
 
                 //パラメーター(AF,AM,Flash)を変えたのでBuilderからRequestを更新
                 mPreviewRequest = mPreviewRequestBuilder.build();
@@ -345,7 +388,7 @@ public class CustomCamera {
     }
 
 
-    //AEがOFFになったとき
+    //AEがONになったときCameraActivityから呼び出される
     public void changeAEOFF(){
         if (mCaptureSession != null) {
             mCameraActivity.setCameraParam(mISO, mExposureTime, mFrameDuration);
@@ -369,6 +412,8 @@ public class CustomCamera {
                 mPreviewRequestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, mISO);
                 mPreviewRequestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, mExposureTime);
                 mPreviewRequestBuilder.set(CaptureRequest.SENSOR_FRAME_DURATION, mFrameDuration);
+                //パラメーター値(ISO, ExposureTime, FrameDuration)をマニュアルで全て変更したので、
+                //リクエストをbuildする。
                 mPreviewRequest = mPreviewRequestBuilder.build();
                 mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback,
                         mInterface.getBackgroundHandler());
@@ -380,22 +425,37 @@ public class CustomCamera {
     }
 
 
-    //静止画を撮影
-    public void takePicture() {
+    //静止画を撮影準備を始める
+    public void takePicture(boolean AEState) {
         if (mCaptureSession != null) {
+            mIsAEState = AEState;
             lockFocus();
         }
     }
 
+    //focusをロックする
     private void lockFocus() {
         try {
             // 静止画を撮影するため、AFをロックする
+            //mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+            //        CameraMetadata.CONTROL_AF_TRIGGER_START);
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
-                    CameraMetadata.CONTROL_AF_TRIGGER_START);
+                            CameraMetadata.CONTROL_AF_TRIGGER_START);
             // captureを実行する。AFロック完了通知を受け取るため、mCaptureCallbackへ進行状況を通知する
             mState = STATE_WAITING_LOCK;
+
+            //AWBも入れる161014
+            //mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE,
+            //        CaptureRequest.CONTROL_AWB_MODE_AUTO);
+
             mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback,
                     mInterface.getBackgroundHandler());
+
+            if(mIsAEState == false){
+                mState = STATE_PICTURE_TAKEN;
+                captureStillPicture();
+            }
+
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -423,4 +483,13 @@ public class CustomCamera {
     public void setCameraActivity(CameraActivity cameraActivity){
         mCameraActivity = cameraActivity;
     }
+
+    public int getISO(){
+        return mISO;
+    }
+
+    public long getExposureTime(){
+        return mExposureTime;
+    }
+
 }

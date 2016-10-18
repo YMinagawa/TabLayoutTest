@@ -12,6 +12,7 @@ import android.view.View;
  * Created by ym on 2016/10/01.
  */
 
+//Rcyclerviewのアイテム間の線を挿入するクラス
 public class CustomItemDecoration extends RecyclerView.ItemDecoration{
 
 

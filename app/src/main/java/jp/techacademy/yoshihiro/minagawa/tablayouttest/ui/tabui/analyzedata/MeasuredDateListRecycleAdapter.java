@@ -25,20 +25,27 @@ public class MeasuredDateListRecycleAdapter
     public static class ItemViewHolder extends RecyclerView.ViewHolder{
 
         public TextView mCapturedDateTextView;
+        public TextView mISOTextView;
+        public TextView mExpTimeTextView;
+        public TextView mNumOfImageTextView;
 
         public ItemViewHolder(View v){
             super(v);
             mCapturedDateTextView = (TextView)v.findViewById(R.id.textView_measureddate);
+            mISOTextView = (TextView)v.findViewById(R.id.textView_iso);
+            mExpTimeTextView = (TextView)v.findViewById(R.id.textView_exptime);
+            mNumOfImageTextView = (TextView)v.findViewById(R.id.textView_imagenumber);
         }
     }
 
+    //コンストラクタ
     public MeasuredDateListRecycleAdapter(RealmList<MeasuredDateAndDataObject> MeasuredDateAndDataObjectList){
         this.mMeasuredDateAndDataObjectList = MeasuredDateAndDataObjectList;
     }
 
     @Override
     public MeasuredDateListRecycleAdapter.ItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType){
-        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.list_date_measure_recycler, parent, false);
+        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.list_measure_date_recycler, parent, false);
         return new ItemViewHolder(v);
     }
 
@@ -46,8 +53,16 @@ public class MeasuredDateListRecycleAdapter
     public void onBindViewHolder(ItemViewHolder holder, int position) {
         //ここで各要素(アイテム)のテキスト等の設定を行う
         Date measuredDate = mMeasuredDateAndDataObjectList.get(position).getMeasuredDate();
+        int iso = mMeasuredDateAndDataObjectList.get(position).getISO();
+        float expTime = mMeasuredDateAndDataObjectList.get(position).getExposureTime();
+        int numOfImage = mMeasuredDateAndDataObjectList.get(position).getCapturedImages().size();
+
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd  HH:mm");
         holder.mCapturedDateTextView.setText(sdf.format(measuredDate));
+        holder.mISOTextView.setText("ISO : " + iso);
+        //すでにmsになっているので1e6で÷必要なし
+        holder.mExpTimeTextView.setText(String.format("ExposureTime : %.3f ms", expTime));
+        holder.mNumOfImageTextView.setText("Image : " + numOfImage);
 
     }
 

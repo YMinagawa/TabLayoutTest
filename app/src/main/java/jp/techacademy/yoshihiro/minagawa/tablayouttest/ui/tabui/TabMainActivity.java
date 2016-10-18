@@ -1,5 +1,6 @@
 package jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui;
 
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -9,25 +10,34 @@ import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.StaggeredGridLayoutManager;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.FrameLayout;
 import android.widget.Spinner;
+import android.widget.TextView;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
 import io.realm.Realm;
+import io.realm.RealmList;
 import io.realm.RealmResults;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.CapturedImageObject;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.MeasuredDateAndDataObject;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.UserObject;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomItemDecoration;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomRecyclerItemClickListener;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.analyzedata.ImageDataListRecyclerAdapter;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.analyzedata.MeasuredDateListRecycleAdapter;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.camera.CameraActivity;
 
@@ -40,15 +50,26 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
     //idをインテントで入手するためのメンバ変数
     int mId;
 
-    //Framelayoutの設定
+    //Framelayout (各Viewを乗っける)
     FrameLayout mFL_Camera;
     FrameLayout mFL_DataAnalysis;
     FrameLayout mFL_History;
-    View mView_select_measuredDate;
+
+    //各View
+    //Camera
     View mView_camera_config;
-    RecyclerView mRecyclerView;
-    RecyclerView.LayoutManager mLayoutManager;
-    RecyclerView.Adapter mAdapter;
+
+    //DataAnalysis
+    //1ページ
+    View mView_select_measuredDate;
+    RecyclerView mSelectMeasureDateRecyclerView;
+    RecyclerView.LayoutManager mSelectMeasureDateLayoutManager;
+    RecyclerView.Adapter mSelectMeasureDateAdapter;
+    //2ページ
+    View mView_select_imageData;
+    RecyclerView mSelectImageRecyclerView;
+    RecyclerView.LayoutManager mSelectImageLayoutManager;
+    RecyclerView.Adapter mSelectImageAdapter;
 
 
     @Override
@@ -59,12 +80,36 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         Intent intent = getIntent();
         mId = intent.getIntExtra("id", 0);
 
-        //ここで選択されたユーザーオブジェクトの入手を行う
-        //getDefalultInstance()をしたら必ずcloseする
+        //ここで選択されたユーザーオブジェクトの入手を行い、サブタイトルにセットする。
+        //更に、中のMeasureDateAndDataListからCaptureImageObjectListを取り出す
+        //Realm.getDefalultInstance()をしたら必ずRealm.closeする
         Realm realm = Realm.getDefaultInstance();
         RealmResults<UserObject> userRealmResults = realm.where(UserObject.class).equalTo("id", mId).findAll();
-        realm.close();
         mUserObject = userRealmResults.get(0);
+        RealmList<MeasuredDateAndDataObject> dateAndDataList = mUserObject.getMeasuredDateAndDataList();
+        //各ファイルパスから画像ファイルが存在するか確認する。ファイルが存在しなければ削除する。
+        for(int i = 0; i < dateAndDataList.size(); i++){
+            MeasuredDateAndDataObject measuredDateAndDataObject = dateAndDataList.get(i);
+
+            RealmList<CapturedImageObject> captureImageList = measuredDateAndDataObject.getCapturedImages();
+
+            for(int j = 0; j < captureImageList.size(); j++){
+                CapturedImageObject capturedImage = captureImageList.get(j);
+                //Log.d("mTabMainActivity", capturedImage.getFilePath());
+                File file = new File(capturedImage.getFilePath());
+                if(!file.exists()){
+                    //画像ファイルが無ければ削除する
+                    captureImageList.remove(capturedImage);
+                }
+            }
+        }
+
+        realm.beginTransaction();
+        realm.copyToRealmOrUpdate(mUserObject);
+        realm.commitTransaction();
+
+        realm.close();
+
         Log.d("mTestTabMainActivity", mUserObject.getName());
         Log.d("mTestTabMainActivity", mUserObject.getMeasuredDateAndDataList().get(0).getMeasuredDate().toString());
 
@@ -86,7 +131,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         createCameraPage();
 
         //DataAnalysis用のページを作る
-        createDataAnalysisPage();
+        createDataAnalysisFirstPage();
 
         //History用のページ（未実装)
         mFL_History = new FrameLayout(this);
@@ -117,10 +162,12 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         mView_camera_config = getLayoutInflater().inflate(R.layout.view_camera_presetting, null);
         mFL_Camera.addView(mView_camera_config);
         FloatingActionButton fab_camera = (FloatingActionButton)mView_camera_config.findViewById(R.id.fab_camera);
+        fab_camera.setImageResource(R.drawable.fab_camera);
         fab_camera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(TabMainActivity.this, CameraActivity.class);
+                intent.putExtra("id", mId);
                 startActivity(intent);
             }
         });
@@ -160,10 +207,11 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             }
         });
 
+
     }
 
     //AnalysisDataのページ設定
-    public void createDataAnalysisPage(){
+    public void createDataAnalysisFirstPage(){
 
         mFL_DataAnalysis = new FrameLayout(this);
 
@@ -172,21 +220,24 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         mFL_DataAnalysis.addView(mView_select_measuredDate);
 
         //1ページ目 : RecycleViewの設定
-        mRecyclerView = (RecyclerView)mView_select_measuredDate.findViewById(R.id.recyclerView_selectcapdate);
-        mLayoutManager = new LinearLayoutManager(this);
-        mRecyclerView.setLayoutManager(mLayoutManager);
+        mSelectMeasureDateRecyclerView = (RecyclerView)mView_select_measuredDate.findViewById(R.id.recyclerView_selectcapdate);
+        mSelectMeasureDateLayoutManager = new LinearLayoutManager(this);
+        mSelectMeasureDateRecyclerView.setLayoutManager(mSelectMeasureDateLayoutManager);
         //1ページ目 : RecycleViewにItemDecorationをセットする
-        mRecyclerView.addItemDecoration(new CustomItemDecoration(this));
+        mSelectMeasureDateRecyclerView.addItemDecoration(new CustomItemDecoration(this));
 
-        mAdapter = new MeasuredDateListRecycleAdapter(mUserObject.getMeasuredDateAndDataList());
-        mRecyclerView.setAdapter(mAdapter);
+        mSelectMeasureDateAdapter = new MeasuredDateListRecycleAdapter(mUserObject.getMeasuredDateAndDataList());
+        mSelectMeasureDateRecyclerView.setAdapter(mSelectMeasureDateAdapter);
+
 
         //1ページ目 : 独自に作成したRecycleItemOnClickListenerを実装する
-        mRecyclerView.addOnItemTouchListener(
-                new CustomRecyclerItemClickListener(this, mRecyclerView, new CustomRecyclerItemClickListener.OnItemClickListener(){
+        //          日付がクリックされたら、その日付に対応するViewを作成する。
+        mSelectMeasureDateRecyclerView.addOnItemTouchListener(
+                new CustomRecyclerItemClickListener(this, mSelectMeasureDateRecyclerView, new CustomRecyclerItemClickListener.OnItemClickListener(){
                     @Override
                     public void onItemClick(View view, int position) {
                         Log.d("mTest", "measureddate normal click");
+                        createDataAnalysisSecondPage(position);
                     }
 
                     @Override
@@ -196,6 +247,44 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                 })
         );
 
+
+
+
+    }
+
+    public void createDataAnalysisSecondPage(int position){
+
+        //2ページ目の設定 : 解析する画像を選ぶ(実装は1ページ目のアイテムリスナー)
+        mView_select_imageData = getLayoutInflater().inflate(R.layout.view_select_imagedata, null);
+
+        //2ページ目 : RecycleViewの設定
+        mSelectImageRecyclerView = (RecyclerView)mView_select_imageData.findViewById(R.id.recyclerView_selectimagedata);
+        mSelectImageLayoutManager = new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL);
+        mSelectImageRecyclerView.setHasFixedSize(true);
+        mSelectImageRecyclerView.setLayoutManager(mSelectImageLayoutManager);
+
+        //2ページ目：RecyclerViewのアイテム毎の線が入るようにする
+        //mSelectImageRecyclerView.addItemDecoration(new CustomItemDecoration(this));
+
+        //2ページ目: ユーザーからデータリストを取り出し、1ページ目でタップされた日時のCaptureImageObject
+        // のRealmListをアダプターに引き渡す
+        RealmList<MeasuredDateAndDataObject> dateAndDataList = mUserObject.getMeasuredDateAndDataList();
+        RealmList<CapturedImageObject> captureImageList = dateAndDataList.get(position).getCapturedImages();
+
+        mSelectImageAdapter = new ImageDataListRecyclerAdapter(captureImageList);
+        mSelectImageRecyclerView.setAdapter(mSelectImageAdapter);
+
+        //2ページ目：RecycleViewの下にDate, ISO, ExposureTimeを表示
+        TextView textViewDate = (TextView)mView_select_imageData.findViewById(R.id.textView_measureddate);
+        TextView textViewISO = (TextView)mView_select_imageData.findViewById(R.id.textView_iso);
+        TextView textViewExpTime = (TextView)mView_select_imageData.findViewById(R.id.textView_exptime);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd  HH:mm");
+        textViewDate.setText("Measured Date : " + sdf.format(dateAndDataList.get(position).getMeasuredDate()));
+        textViewISO.setText("ISO : " + dateAndDataList.get(position).getISO());
+        textViewExpTime.setText("Exposure Time : " + dateAndDataList.get(position).getExposureTime() + " ms");
+
+        mFL_DataAnalysis.addView(mView_select_imageData);
     }
 
     @Override
@@ -227,7 +316,9 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
 
     @Override
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-
+        //キーボードが出てたら閉じる
+        InputMethodManager im = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+        im.hideSoftInputFromWindow(mView_camera_config.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
     }
 
     @Override
