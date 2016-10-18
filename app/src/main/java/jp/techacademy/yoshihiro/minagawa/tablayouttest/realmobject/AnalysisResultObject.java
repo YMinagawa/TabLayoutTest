@@ -25,4 +25,7 @@ public class AnalysisResultObject extends RealmObject implements Serializable{
     //解析条件の入ったObjectを作成するか？
     //結果はどうやって残す？
 
+    //getter and setter
+
+
 }

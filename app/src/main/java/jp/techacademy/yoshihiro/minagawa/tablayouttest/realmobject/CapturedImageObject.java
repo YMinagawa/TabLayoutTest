@@ -1,7 +1,6 @@
 package jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject;
 
 import java.io.Serializable;
-import java.util.Date;
 
 import io.realm.RealmObject;
 
@@ -17,11 +16,34 @@ public class CapturedImageObject extends RealmObject implements Serializable{
     //ファイルネーム
     private String fileName;
 
-    //1つ1つのデータの撮影時間
-    private Date capturedDate;
-
     //解析回数
     private int numOfAnalysis;
 
+    //pathname
+    private String filePath;
 
+
+    //Getter and Setter
+    //filename
+    public String getFileName(){
+        return fileName;
+    }
+
+    public void setFileName(String filename){
+        this.fileName = filename;
+    }
+
+    //Getter and Setter
+
+
+
+    //Getter and Setter
+    //filepath
+    public String getFilePath(){
+        return filePath;
+    }
+
+    public void setFilePath(String filePath) {
+        this.filePath = filePath;
+    }
 }

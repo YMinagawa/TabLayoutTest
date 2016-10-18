@@ -21,7 +21,7 @@ public class UserObject extends RealmObject implements Serializable {
     private int id;
 
     private String name; //名前
-    private String saveFolderName;
+    private String userPath; //フォルダのパス
 
     private int numOfInspection; //検査回数
     private int numOfInfection; //感染回数
@@ -32,6 +32,7 @@ public class UserObject extends RealmObject implements Serializable {
     //RealmListを使うと保存時間と取得時間を短縮可能
     private RealmList<MeasuredDateAndDataObject> measuredDateAndDataList; //日付毎のデータリスト
 
+    //getterとsetter
     //id
     public int getId(){
         return id;
@@ -51,13 +52,24 @@ public class UserObject extends RealmObject implements Serializable {
     }
 
     //フォルダー名
-    public String getSaveFolderName(){
-        return saveFolderName;
+    public String getUserPath(){
+        return userPath;
     }
 
-    public void setSaveFolderName(String saveFolderName){
-        this.saveFolderName = saveFolderName;
+    public void setUserPath(String userPath){
+        this.userPath = userPath;
     }
+
+    //検査回数
+    public int getNumOfInspection(){return numOfInspection;}
+
+    public void setNumOfInspection(int numOfInspection){this.numOfInspection = numOfInspection;}
+
+    //感染回数
+    public int getNumOfInfection(){return numOfInfection;}
+
+    public void setNumOfInfection(int numOfInfection){this.numOfInfection = numOfInfection;}
+
 
     //日付毎のデータリスト
     public RealmList<MeasuredDateAndDataObject> getMeasuredDateAndDataList(){

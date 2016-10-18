@@ -1,9 +1,17 @@
 package jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.userselect;
 
+import android.Manifest;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.support.annotation.NonNull;
 import android.support.design.widget.CollapsingToolbarLayout;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -49,11 +57,26 @@ public class UserSelectActivity extends AppCompatActivity {
     //UserLayoutActivity
     private ArrayList<UserObject> mUserObjectArrayList;
 
+    private static final int REQUEST_PERMISSIONS = 0x01;
+
+    private static final String[] ALL_PERMISSIONS = {
+            Manifest.permission.CAMERA,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_select);
+
+        //Permissionの確認を全てここで行う
+        if(!hasAllPermissionGranted()){
+            requestCameraPermission();
+        }
+
 
         //CollapseintToolBarLayoutの設定
         CollapsingToolbarLayout toolbarLayout = (CollapsingToolbarLayout)findViewById(R.id.collapsing_toolbar);
@@ -139,12 +162,13 @@ public class UserSelectActivity extends AppCompatActivity {
         mAdapter.notifyItemInserted(0);
     }
 
+
     public void addUserForTest(){
 
         for(int i=0; i<3; i++) {
 
             UserObject user = new UserObject();
-            String username = "test user" + String.valueOf(i);
+            String username = "test_user" + String.valueOf(i);
             user.setName(username);
             user.setId(i);
 
@@ -166,14 +190,17 @@ public class UserSelectActivity extends AppCompatActivity {
         }
     }
 
+
     public void reloadRecycledView(){
+
+        mUserObjectArrayList = new ArrayList<>();
 
         for(int i = 0; i < mUserRealmResults.size(); i++){
             UserObject user = new UserObject();
 
             user.setId(mUserRealmResults.get(i).getId());
             user.setName(mUserRealmResults.get(i).getName());
-            user.setSaveFolderName(mUserRealmResults.get(i).getSaveFolderName());
+            user.setUserPath(mUserRealmResults.get(i).getUserPath());
             user.setMeasureDataAndDateList(mUserRealmResults.get(i).getMeasuredDateAndDataList());
 
             mUserObjectArrayList.add(user);
@@ -182,5 +209,104 @@ public class UserSelectActivity extends AppCompatActivity {
         mAdapter = new UserListRecycleAdapter(mUserObjectArrayList);
         mRecyclerView.setAdapter(mAdapter);
         mAdapter.notifyDataSetChanged();
+    }
+
+
+    //全部のパーミッションがあるかの確認
+    private boolean hasAllPermissionGranted(){
+        for(String permission : ALL_PERMISSIONS){
+            if(ActivityCompat.checkSelfPermission(UserSelectActivity.this, permission)
+                    != PackageManager.PERMISSION_GRANTED){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    //Permission handling for Android6.0
+    private void requestCameraPermission() {
+        for (String permission : ALL_PERMISSIONS) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
+                Log.d("mTestUserSelectActivity", "shouldShowRequestPermissionRationale:追加説明");
+                //権限チェックした結果、持っていない場合はダイアログを出す
+                new AlertDialog.Builder(this)
+                        .setTitle("パーミッションに関する説明")
+                        .setMessage("このアプリではカメラ制御、データ書き込み、データ読み込みに関するパーミッションが必要です")
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                ActivityCompat.requestPermissions(UserSelectActivity.this,
+                                        ALL_PERMISSIONS,
+                                        REQUEST_PERMISSIONS);
+                            }
+                        }).create().show();
+                return;
+            }
+        }
+
+        //権限の取得
+        ActivityCompat.requestPermissions(this, ALL_PERMISSIONS, REQUEST_PERMISSIONS);
+        return;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+
+        int req = requestCode;
+        String[] permi = permissions;
+        int[] grantR = grantResults;
+
+        int i = 0;
+
+        if(requestCode == REQUEST_PERMISSIONS){
+            for(int result: grantResults) {
+
+                if(result != PackageManager.PERMISSION_GRANTED){
+
+                    Log.d("mTestUserSelectActivity", "onRequestPermissionResult:DENYED");
+
+
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(this, permissions[i])){
+                        Log.d("mTestUserSelectActivity", "[show error]");
+                        new AlertDialog.Builder(this)
+                                .setTitle("パーミッション取得エラー1")
+                                .setMessage("再試行する場合は、再度Requestボタンを押してください")
+                                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener(){
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        requestCameraPermission();
+                                        return;
+                                    }
+                                }).create().show();
+                    }else{
+                        Log.d("mTestUserSelectActivity", "[show app setting guide");
+                        new AlertDialog.Builder(this)
+                                .setTitle("パーミッション取得エラー2")
+                                .setMessage("今後は許可しないが選択されました。アプリ設定>権限をチェックしてください")
+                                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        openSetting();
+                                    }
+                                }).create().show();
+                    }
+
+                }else{
+                    Log.d("mTestUserSelectActivity", "onRequestPermissionResult:GRANTED");
+                    //Todoをここに書く場合がある。実際にカメラを使うのは後なので、今回は特になし。
+                }
+                i += 1;
+            }
+        }else{
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
+
+    private void openSetting(){
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        //Fragmenetの場合はgetContext().getPackageName()
+        Uri uri = Uri.fromParts("package", getPackageName(), null);
+        intent.setData(uri);
+        startActivity(intent);
     }
 }

@@ -29,7 +29,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginLeft="45dp">
+                android:layout_marginLeft="25dp">
                 <Spinner
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -71,7 +71,8 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="13dp"
         android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"/>
+        android:layout_alignParentEnd="true"
+        android:src = "@android:drawable/ic_dialog_email"/>
 
 
 </RelativeLayout>

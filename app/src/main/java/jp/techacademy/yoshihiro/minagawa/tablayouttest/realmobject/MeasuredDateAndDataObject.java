@@ -15,6 +15,9 @@ public class MeasuredDateAndDataObject extends RealmObject implements Serializab
     //日時とカメラアプリが起動した時間
     private Date measuredDate;
 
+    //測定した画像の保存先のPath
+    private String directoryPath;
+
     //撮影した画像のデータ
     //日時毎に保存する
     private RealmList<CapturedImageObject> capturedImages;
@@ -27,6 +30,14 @@ public class MeasuredDateAndDataObject extends RealmObject implements Serializab
     //封入後の経過時間
     private Date ElapsedTime;
 
+    //ISOの値
+    private int iso;
+
+    //ExposureTimeの値
+    private float exposureTime;
+
+
+    //Getter and Setter
     //日時
     public Date getMeasuredDate() {
         return measuredDate;
@@ -36,14 +47,28 @@ public class MeasuredDateAndDataObject extends RealmObject implements Serializab
         this.measuredDate = measuredDate;
     }
 
+    //Getter and Setter
+    //imageDirectory
+    public String getDirectoryPath(){
+        return directoryPath;
+    }
+
+    public void setDirectoryPath(String directoryPath){
+        this.directoryPath = directoryPath;
+    }
+
+    //Getter and Setter
+    //captureImaged
     public RealmList<CapturedImageObject> getCapturedImages(){
         return capturedImages;
     }
 
-    public void setCaptureImages(RealmList<CapturedImageObject> capturedImages){
+    public void setCapturedImages(RealmList<CapturedImageObject> capturedImages){
         this.capturedImages = capturedImages;
     }
 
+    //Getter and Setter
+    //AnalyzedResult
     public RealmList<AnalysisResultObject> getAnalysisResults(){
         return analysisResults;
     }
@@ -52,8 +77,25 @@ public class MeasuredDateAndDataObject extends RealmObject implements Serializab
         this.analysisResults = analysisResults;
     }
 
+    //Getter and Setter
+    //ISO
+    public int getISO(){
+        return iso;
+    }
 
+    public void setISO(int iso){
+        this.iso = iso;
+    }
 
+    //Getter and Setter
+    //ExposureTime
+    public float getExposureTime(){
+        return exposureTime;
+    }
+
+    public void setExposureTime(float exposureTime){
+        this.exposureTime = exposureTime;
+    }
 
 
 }

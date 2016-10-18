@@ -34,6 +34,7 @@
     </string-array>
 
     <string-array name="min_list">
+        <item>0 min</item>
         <item>5 min</item>
         <item>10 min</item>
         <item>15 min</item>
