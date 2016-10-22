@@ -22,6 +22,8 @@ public class CapturedImageObject extends RealmObject implements Serializable{
     //pathname
     private String filePath;
 
+    //checked
+    private boolean isChecked;
 
     //Getter and Setter
     //filename
@@ -34,8 +36,14 @@ public class CapturedImageObject extends RealmObject implements Serializable{
     }
 
     //Getter and Setter
+    //getChecked
+    public boolean getChecked(){
+        return isChecked;
+    }
 
-
+    public void setIsChecked(boolean isChecked){
+        this.isChecked = isChecked;
+    }
 
     //Getter and Setter
     //filepath

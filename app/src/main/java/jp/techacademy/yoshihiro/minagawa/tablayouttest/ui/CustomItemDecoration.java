@@ -15,8 +15,6 @@ import android.view.View;
 //Rcyclerviewのアイテム間の線を挿入するクラス
 public class CustomItemDecoration extends RecyclerView.ItemDecoration{
 
-
-
     private static final int[] ATTRS = new int[]{
             android.R.attr.listDivider
     };

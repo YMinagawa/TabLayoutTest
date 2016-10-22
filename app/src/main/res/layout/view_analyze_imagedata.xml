@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:background="#FFFFFFFF"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+                android:id = "@+id/ll_analyze_imagedata">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:text = "test analysis"/>
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:id = "@+id/imageView_analyzeimage"
+        />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp">
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id = "@+id/btn_gray"
+            android:text = "gray"/>
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id = "@+id/btn_invert"
+            android:text = "invert"/>
+
+
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id = "@+id/btn_thresh"
+            android:text = "Thresh"/>
+
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp">
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id = "@+id/btn_reset"
+            android:text = "reset"/>
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text = "erode"
+            android:id = "@+id/btn_erode"/>
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id = "@+id/btn_medianBlur"
+            android:text = "medianBlur"
+            />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp">
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id = "@+id/btn_findContours"
+            android:text = "findContours"/>
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id = "@+id/btn_connectComponents"
+            android:text = "connectComponents"
+           />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            />
+
+    </LinearLayout>
+
+    <SeekBar
+        android:id = "@+id/seekBar_thresh"
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:max = "255"
+        android:progress = "150"
+        />
+
+    <SeekBar
+        android:id = "@+id/seekBar_size"
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:max = "255"
+        android:progress = "100"
+        />
+
+
+</LinearLayout>

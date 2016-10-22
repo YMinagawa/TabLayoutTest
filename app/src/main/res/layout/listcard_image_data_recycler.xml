@@ -9,28 +9,47 @@
     card_view:cardUseCompatPadding="true"
     >
     <LinearLayout
+        xmlns:android = "http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text = "testCardView"
+            android:text = "   TestView"
             android:background="@color/colorPrimaryDark"/>
         <RelativeLayout
             android:layout_width="wrap_content"
-            android:layout_height="100dp">
-        <ImageView
-            android:layout_marginBottom ="4dp"
-            android:layout_width = "match_parent"
-            android:layout_height = "wrap_content"
-            android:id = "@+id/imageView_measuredata"/>
+            android:layout_height="100dp"
+            xmlns:android = "http://schemas.android.com/apk/res/android">
+            <ImageView
+                android:layout_marginBottom ="4dp"
+                android:layout_width = "match_parent"
+                android:layout_height = "wrap_content"
+                android:id = "@+id/imageView_measuredata"/>
         </RelativeLayout>
-        <CheckBox
+
+        <RelativeLayout
+            xmlns:android = "http://schemas.android.com/apk/res/android"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:checked = "false"
-            android:text = "Check Box"
-            android:theme ="@style/CustomCheckBox"/>
+            >
+
+            <CheckBox
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked = "false"
+                android:text = "Check"
+                android:theme ="@style/CustomCheckBox"
+                android:id = "@+id/checkbox_analyze"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="10dp"
+                android:layout_alignParentRight="true"
+                android:text = "num"
+                android:id = "@+id/textView_imagenumber"/>
+        </RelativeLayout>
     </LinearLayout>
 </android.support.v7.widget.CardView>

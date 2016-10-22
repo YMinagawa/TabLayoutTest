@@ -1,5 +1,6 @@
 package jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.analyzedata;
 
+import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.v7.widget.RecyclerView;
@@ -7,13 +8,19 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import java.io.File;
 
+import io.realm.Realm;
 import io.realm.RealmList;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.CapturedImageObject;
+
+import static android.graphics.BitmapFactory.decodeFile;
 
 /**
  * Created by ym on 2016/10/15.
@@ -22,31 +29,66 @@ import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.CapturedImage
 public class ImageDataListRecyclerAdapter
         extends RecyclerView.Adapter<ImageDataListRecyclerAdapter.ItemViewHolder>{
 
-
-    private static final int TYPE_ITEM = 1;
-    private static final int TYPE_FOOTER = 2;
-
-
-    private RealmList<CapturedImageObject> mCapturedImageList;
+    private static RealmList<CapturedImageObject> mCapturedImageList;
     public static View mCardView;
+    public static Activity tabMainActivity;
 
     public static class ItemViewHolder extends RecyclerView.ViewHolder{
 
-
         public ImageView mImageView;
+        public TextView mTextView;
+        public CheckBox mCheckBox;
 
         public ItemViewHolder(View itemView) {
+
             super(itemView);
             mImageView = (ImageView) itemView.findViewById(R.id.imageView_measuredata);
+            mTextView = (TextView)itemView.findViewById(R.id.textView_imagenumber);
+            mCheckBox = (CheckBox)itemView.findViewById(R.id.checkbox_analyze);
             mCardView = itemView;
+
+            mImageView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+
+                    int position = Integer.parseInt((mTextView.getText()).toString()) - 1;
+                    Log.d("mImageDataList", "n = " + position);
+
+                    //File imageFile = new File(mCapturedImageList.get(position).getFilePath());
+                    //BitmapFactory.Options options = new BitmapFactory.Options();
+                    //options.inJustDecodeBounds = false;
+                    //decodeFile(imageFile.getAbsolutePath(), options);
+                    //Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
+                    ExpandImageDialogFragment exImageDialogFragment = ExpandImageDialogFragment.newInstance(mCapturedImageList.get(position).getFilePath());
+                    exImageDialogFragment.show(tabMainActivity.getFragmentManager(), "ExpandImageDialogFragment");
+
+
+                }
+            });
+
+            mCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    int position = Integer.parseInt((mTextView.getText()).toString()) -1;
+                    Log.d("ImageDataList", "check = " + mCheckBox.isChecked());
+                    //Realmを更新してcheck状況を保存する
+                    Realm realm = Realm.getDefaultInstance();
+                    realm.beginTransaction();
+                    mCapturedImageList.get(position).setIsChecked(mCheckBox.isChecked());
+                    realm.commitTransaction();
+                    realm.close();
+
+                }
+            });
 
 
         }
     }
 
     //コンストラクタ
-    public ImageDataListRecyclerAdapter(RealmList<CapturedImageObject> capturedImageList){
+    public ImageDataListRecyclerAdapter(RealmList<CapturedImageObject> capturedImageList, Activity tabMainActivity){
         this.mCapturedImageList = capturedImageList;
+        this.tabMainActivity = tabMainActivity;
     }
 
     @Override
@@ -57,6 +99,7 @@ public class ImageDataListRecyclerAdapter
 
     @Override
     public void onBindViewHolder(ItemViewHolder holder, int position) {
+
         File imageFile = new File(mCapturedImageList.get(position).getFilePath());
         //実際に表示するサイズ(ImageView)より大きいBitmapを読み込むとメモリの無駄(重くなる)
         //ので、効率的に読み込む(小さくして読み込む)
@@ -65,7 +108,7 @@ public class ImageDataListRecyclerAdapter
         //代わりにoutHeight, outWidth, outMimeTypeプロパティに読み込んだ画像の情報がセットされる。
         options.inJustDecodeBounds = true;
 
-        BitmapFactory.decodeFile(imageFile.getAbsolutePath(), options);
+        decodeFile(imageFile.getAbsolutePath(), options);
 
         //画像のサイズがわかったので、縮小して読み込むのかそのまま読み込むか決める
         //大体ImageViewに合わせるのが良い
@@ -80,16 +123,22 @@ public class ImageDataListRecyclerAdapter
         int width = mCardView.getMeasuredWidth();
         int inSampleSize = calculateSampleSize(options, width, height);
 
-        Log.d("mImageDataList", "inSampleSize = " + inSampleSize);
+        //Log.d("mImageDataList", "inSampleSize = " + inSampleSize);
         //inSampleSizeをセットしてデコードする
-        options.inJustDecodeBounds =   false;
+        options.inJustDecodeBounds = false;
         //先程計算した縮尺値を指定
         options.inSampleSize = inSampleSize;
-        Bitmap imageBitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath(), options);
+        Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
+
+        //openCVテスト用
         holder.mImageView.setImageBitmap(imageBitmap);
 
+        //TextViewに画像のナンバーを入力
+        holder.mTextView.setText(String.valueOf(position+1));
 
-
+        //CheckBoxの設定
+        boolean checked = mCapturedImageList.get(position).getChecked();
+        holder.mCheckBox.setChecked(checked);
     }
 
     @Override

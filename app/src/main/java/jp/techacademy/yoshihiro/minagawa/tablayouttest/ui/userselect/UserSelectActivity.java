@@ -78,6 +78,13 @@ public class UserSelectActivity extends AppCompatActivity {
         }
 
 
+//        if(!OpenCVLoader.initDebug()){
+//            Log.i("OpenCV", "Failed");
+//        }else{
+//            Log.i("OpenCV", "successfully built!");
+//
+//        }
+
         //CollapseintToolBarLayoutの設定
         CollapsingToolbarLayout toolbarLayout = (CollapsingToolbarLayout)findViewById(R.id.collapsing_toolbar);
         //タイトル文字設定
