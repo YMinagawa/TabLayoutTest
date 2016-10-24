@@ -127,11 +127,15 @@ public class ImageDataListRecyclerAdapter
         //inSampleSizeをセットしてデコードする
         options.inJustDecodeBounds = false;
         //先程計算した縮尺値を指定
-        options.inSampleSize = inSampleSize;
+        //options.inSampleSize = inSampleSize;
+        options.inSampleSize = 8;
         Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
 
         //openCVテスト用
         holder.mImageView.setImageBitmap(imageBitmap);
+        //使い終わったimageBitmapをリサイクル
+        //imageBitmap.recycle();
+
 
         //TextViewに画像のナンバーを入力
         holder.mTextView.setText(String.valueOf(position+1));
@@ -139,6 +143,7 @@ public class ImageDataListRecyclerAdapter
         //CheckBoxの設定
         boolean checked = mCapturedImageList.get(position).getChecked();
         holder.mCheckBox.setChecked(checked);
+
     }
 
     @Override

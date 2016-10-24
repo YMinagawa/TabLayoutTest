@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app = "http://schemas.android.com/apk/res-auto"
               android:orientation="vertical"
               android:background="#FFFFFFFF"
               android:layout_width="match_parent"
@@ -19,7 +20,7 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp">
+        android:layout_height="35dp">
 
         <Button
             android:layout_width="wrap_content"
@@ -44,7 +45,22 @@
     </LinearLayout>
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp">
+        android:layout_height="35dp">
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id = "@+id/btn_mask"
+            android:text = "MASK"/>
+
+
+
+        />
+
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="35dp">
 
         <Button
             android:layout_width="wrap_content"
@@ -61,40 +77,18 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id = "@+id/btn_medianBlur"
-            android:text = "medianBlur"
-            />
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="40dp">
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id = "@+id/btn_findContours"
-            android:text = "findContours"/>
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             android:id = "@+id/btn_connectComponents"
             android:text = "connectComponents"
-           />
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             />
 
     </LinearLayout>
+
+
 
     <SeekBar
         android:id = "@+id/seekBar_thresh"
         android:layout_width="match_parent"
-        android:layout_height="30dp"
+        android:layout_height="25dp"
         android:max = "255"
         android:progress = "150"
         />
@@ -102,10 +96,15 @@
     <SeekBar
         android:id = "@+id/seekBar_size"
         android:layout_width="match_parent"
-        android:layout_height="30dp"
+        android:layout_height="25dp"
         android:max = "255"
         android:progress = "100"
         />
 
+    <org.florescu.android.rangeseekbar.RangeSeekBar
+        android:id = "@+id/rangeSeekBar_size"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        />
 
 </LinearLayout>

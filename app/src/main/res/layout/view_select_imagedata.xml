@@ -54,15 +54,15 @@
 
 
     </LinearLayout>
-<!--
+
+
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/fab_analysis"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:backgroundTint="@color/fab_delete_color"
         android:layout_marginLeft="16dp"
         android:layout_marginRight="16dp"
-        android:layout_marginBottom="180dp"
+        android:layout_marginBottom="158dp"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:src="@drawable/fab_chart_bar"
@@ -77,10 +77,9 @@
         android:id="@+id/fab_delete"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:backgroundTint="@color/fab_analyze_color"
         android:layout_marginLeft="16dp"
         android:layout_marginRight="16dp"
-        android:layout_marginBottom="108dp"
+        android:layout_marginBottom="90dp"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:src="@drawable/fab_delete"
@@ -90,21 +89,20 @@
         app:layout_anchorGravity = "bottom|right"
         android:visibility="invisible"
         />
--->
+
     <android.support.design.widget.FloatingActionButton
-        android:id="@+id/fab_analysis"
+        android:id="@+id/fab_plus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_anchorGravity = "bottom|right"
         android:layout_marginLeft="16dp"
         android:layout_marginRight="1dp"
         android:layout_marginBottom="18dp"
-        android:src="@drawable/fab_chart_bar"
+        android:src="@drawable/fab_plus"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:layout_marginEnd="28dp"
         android:elevation="6dp"
         app:pressedTranslationZ="12dp"/>
-
 
 </RelativeLayout>

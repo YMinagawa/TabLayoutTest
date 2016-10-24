@@ -19,6 +19,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -30,16 +31,14 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.florescu.android.rangeseekbar.RangeSeekBar;
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
-import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
@@ -96,17 +95,18 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
     Animation mFabOpen, mFabClose, mFabRClockwise,  mFabRanticlockwise;
     boolean isOpen =false;
     //3ページ
+    Mat mSrcMat;
     View mView_analyze_imageData;
     ImageView mImageView;
     Bitmap mAnalyzedImageBitmap;
     Bitmap mGrayImageBitmap;
     Bitmap mThreshImageBitmap;
     Bitmap mErodeImageBitmap;
-    Bitmap mGaussBlurBitmap;
-    Bitmap mContoursBitmap;
+    Bitmap mMaskedImageBitmap;
     Bitmap mConnectComBitmap;
     SeekBar mSb_threshold;
     SeekBar mSb_size;
+    RangeSeekBar<Integer> mRsb_size;
 
     int[] mXArray;
     int[] mYArray;
@@ -342,44 +342,42 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
 
         //2ページ目：解析に移行するためのFloating Action Button
 
-//        mFab_plus = (FloatingActionButton)mView_analyze_imageData.findViewById(R.id.fab_plus);
+        mFab_plus = (FloatingActionButton)mView_select_imageData.findViewById(R.id.fab_plus);
         mFab_analysis = (FloatingActionButton)mView_select_imageData.findViewById(R.id.fab_analysis);
-        mFab_analysis.setImageResource(R.drawable.fab_chart_bar);
         mFab_analysis.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 createDataAnalysisThirdPage(date_position);
             }
         });
-//        mFab_delete = (FloatingActionButton)mView_analyze_imageData.findViewById(R.id.fab_delete);
-//        mFabOpen = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.fab_open);
-//        mFabClose = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.fab_close);
-//        mFabRClockwise = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.rotate_clockwise);
-//        mFabRanticlockwise = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.rotate_anticlockwise);
+        mFab_delete = (FloatingActionButton)mView_select_imageData.findViewById(R.id.fab_delete);
+        mFabOpen = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.fab_open);
+        mFabClose = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.fab_close);
+        mFabRClockwise = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.rotate_clockwise);
+        mFabRanticlockwise = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.rotate_anticlockwise);
 
-        //mFab_plusを押した時のアニメーション
-//        mFab_plus.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//
-//                if(isOpen){
-//                    mFab_delete.startAnimation(mFabClose);
-//                    mFab_delete.setClickable(false);
-//                    mFab_analysis.startAnimation(mFabClose);
-//                    mFab_analysis.setClickable(false);
-//                    mFab_plus.startAnimation(mFabRanticlockwise);
-//                    isOpen = false;
-//                }else{
-//                    mFab_delete.startAnimation(mFabOpen);
-//                    mFab_delete.setClickable(true);
-//                    mFab_analysis.startAnimation(mFabOpen);
-//                    mFab_analysis.setClickable(true);
-//                    mFab_plus.startAnimation(mFabRClockwise);
-//                    isOpen = true;
-//
-//                }
-//            }
-//        });
+        //mFab_plusを押した時のアニメーション(deleteと解析が開く)
+        mFab_plus.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                if(isOpen){
+                    mFab_delete.startAnimation(mFabClose);
+                    mFab_delete.setClickable(false);
+                    mFab_analysis.startAnimation(mFabClose);
+                    mFab_analysis.setClickable(false);
+                    mFab_plus.startAnimation(mFabRanticlockwise);
+                    isOpen = false;
+                }else{
+                    mFab_delete.startAnimation(mFabOpen);
+                    mFab_delete.setClickable(true);
+                    mFab_analysis.startAnimation(mFabOpen);
+                    mFab_analysis.setClickable(true);
+                    mFab_plus.startAnimation(mFabRClockwise);
+                    isOpen = true;
+                }
+            }
+        });
 
 
 
@@ -452,16 +450,16 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             @Override
             public void onClick(View v) {
                 System.loadLibrary("opencv_java3");
-                Mat srcMat = new Mat();
-                Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
+                mSrcMat = new Mat();
+                Utils.bitmapToMat(mAnalyzedImageBitmap, mSrcMat);
                 Mat grayMat = new Mat();
-                Imgproc.cvtColor(srcMat, grayMat, Imgproc.COLOR_RGB2GRAY);
+                Imgproc.cvtColor(mSrcMat, grayMat, Imgproc.COLOR_RGB2GRAY);
                 mGrayImageBitmap = Bitmap.createBitmap(grayMat.width(), grayMat.height(), Bitmap.Config.ARGB_8888);
                 //白黒反転
                 //Core.bitwise_not(grayMat, grayMat);
                 Utils.matToBitmap(grayMat, mGrayImageBitmap);
                 mImageView.setImageBitmap(mGrayImageBitmap);
-                srcMat.release();
+                //mSrcMat.release();
                 grayMat.release();
             }
         });
@@ -499,8 +497,8 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 System.loadLibrary("opencv_java3");
-                mThreshImageBitmap = mGrayImageBitmap;
-                mImageView.setImageBitmap(mGrayImageBitmap);
+                //mThreshImageBitmap = mGrayImageBitmap;
+                //mImageView.setImageBitmap(mGrayImageBitmap);
                 toastText.setText("Threshold " + progress);
                 Log.d("mTabMainActivity", "thresh = " + progress);
                 //まずグレイスケール用のmatを用意し、
@@ -552,6 +550,41 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             }
         });
 
+        //Mask用(マスク用)のButton設定
+        Button btnMask = (Button)mView_analyze_imageData.findViewById(R.id.btn_mask);
+        btnMask.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                System.loadLibrary("opencv_java3");
+                Mat thresholdMat = new Mat();
+                Utils.bitmapToMat(mThreshImageBitmap, thresholdMat);
+                //マスクなので1チャンネルにする
+                Imgproc.cvtColor(thresholdMat, thresholdMat, Imgproc.COLOR_RGB2GRAY);
+
+                //マスクをかけるsrcを呼び出す
+                Mat srcMat = new Mat();
+                Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
+                //Imgproc.cvtColor(srcMat, srcMat, Imgproc.COLOR_RGBA2RGB);
+
+                Mat maskedMat = new Mat();
+                //maskedMat = Mat.zeros(srcMat.width(), srcMat.height(), srcMat.type());
+                //マスクをかける
+                srcMat.copyTo(maskedMat, thresholdMat);
+                //Core.bitwise_and(srcMat, thresholdMat, srcMat);
+
+                //Imgproc.cvtColor(maskedMat, maskedMat, Imgproc.COLOR_RGBA2RGB);
+                mMaskedImageBitmap = Bitmap.createBitmap(maskedMat.width(), maskedMat.height(), Bitmap.Config.ARGB_8888);
+
+                Utils.matToBitmap(maskedMat, mMaskedImageBitmap);
+                mImageView.setImageBitmap(mMaskedImageBitmap);
+
+                srcMat.release();
+                thresholdMat.release();
+                maskedMat.release();
+
+            }
+        });
+
         //erode用のButtonの設定
         Button btnErode = (Button)mView_analyze_imageData.findViewById(R.id.btn_erode);
         btnErode.setOnClickListener(new View.OnClickListener() {
@@ -571,73 +604,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             }
         });
 
-        //MidianBlur用のButtonの設定
-        Button btnMidBlur = (Button)mView_analyze_imageData.findViewById(R.id.btn_medianBlur);
-        btnMidBlur.setOnClickListener(new View.OnClickListener(){
-            @Override
-            public void onClick(View v) {
-                System.loadLibrary("opencv_java3");
-                Mat srcMat = new Mat();
-                Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
-                Mat medianBlurMat = new Mat();
-                Imgproc.medianBlur(srcMat, medianBlurMat, 3);
-                mGaussBlurBitmap = Bitmap.createBitmap(medianBlurMat.width(), medianBlurMat.height(), Bitmap.Config.ARGB_8888);
-                Utils.matToBitmap(medianBlurMat, mGaussBlurBitmap);
-                mImageView.setImageBitmap(mGaussBlurBitmap);
-                srcMat.release();
-                medianBlurMat.release();
-            }
-        });
-
-        //findContours用のButtonの設定
-        Button btnFindContours = (Button)mView_analyze_imageData.findViewById(R.id.btn_findContours);
-        btnFindContours.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-                if(mThreshImageBitmap != null) {
-                    System.loadLibrary("opencv_java3");
-                    //閾値を決めた画像を読み込む
-                    Mat thresholdMat = new Mat();
-                    Utils.bitmapToMat(mThreshImageBitmap, thresholdMat);
-                    Imgproc.cvtColor(thresholdMat, thresholdMat, Imgproc.COLOR_RGB2GRAY);
-
-                    //輪郭の抽出
-                    ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-                    //Mat hierarchy = new Mat(thresholdMat.cols(), thresholdMat.rows(), CvType.CV_32SC1);
-                    Mat hierarchy = new Mat();
-                    Imgproc.findContours(thresholdMat, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
-
-                    //輪郭の色を決める
-                    Scalar contourColor = new Scalar(255, 0, 0);
-
-                    //srcMat
-                    Mat srcMat = new Mat();
-                    Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
-
-                    Mat dstMat = Mat.zeros(new Size(srcMat.width(), srcMat.height()), CvType.CV_8UC3);
-
-                    //opencv.jp/opencv-2.1/cpp/structual_analysis_and_shape_descriptors.html
-                    //drawContours
-                    //image-出力画像、 contours-入力される輪郭
-                    //contourIdx-書かれる輪郭(負の場合：全て)、color-輪郭の色
-                    //thickness-輪郭の太さ、負の場合は塗りつぶされる
-                    Imgproc.drawContours(dstMat, contours, -1, contourColor, 3);
-
-                    mContoursBitmap = Bitmap.createBitmap(srcMat.width(), srcMat.height(), Bitmap.Config.ARGB_8888);
-                    Utils.matToBitmap(dstMat, mContoursBitmap);
-
-                    mImageView.setImageBitmap(mContoursBitmap);
-
-                    srcMat.release();
-                    thresholdMat.release();
-                    dstMat.release();
-                    hierarchy.release();
-                    contours = null;
-                }
-            }
-        });
-
         //connectedComponetnsWithStats用のボタン設定
         Button btn_connectComponents = (Button)findViewById(R.id.btn_connectComponents);
         btn_connectComponents.setOnClickListener(new View.OnClickListener() {
@@ -648,6 +614,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                     //Thresholdのbarを使えなくし、Sizeのseekbarを使えるようにする
                     mSb_threshold.setEnabled(false);
                     mSb_size.setEnabled(true);
+                    mRsb_size.setEnabled(true);
 
                     System.loadLibrary("opencv_java3");
 
@@ -677,8 +644,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                     //statMat.get(x, y)  x : i(ラベル数)   y : stateの数
                     //y = 0 : LEFT,  y = 1 : TOP,  y = 2 : WIDTH
                     //y = 3 : HEIGHT, y = 4 : AREA, y = 5 : MAX???
-
-                    Log.d("Tabmainactivity", "width = " +(int)statMat.get(0, 2)[0] );
 
                     //ラベルしたオブジェクトにそれぞれ四角のROIをあてはめる
                     //srcMatのTypeを変える8UC4→8UC3
@@ -722,15 +687,15 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                     //seekbar_sizeのmax値(背景のラベル(0)を除く)を入れる
                     int[] areaArray = mAreaArray.clone();
                     Arrays.sort(areaArray);
-                    Log.d("TabMainActivity", "max = " + areaArray[areaArray.length-1]);
-                    Log.d("TabMainActivity", "max-1 = " + areaArray[areaArray.length-2]);
 
                     //現状max値が大きすぎるとbarの最大値がでかくなりすぎる。
                     //大きすぎる場合は制限を設ける
-                    if(areaArray[areaArray.length-2] > 20000) {
-                        mSb_size.setMax(20000);
+                    if(areaArray[areaArray.length-2] > 200000) {
+                        mSb_size.setMax(200000);
+                        mRsb_size.setRangeValues(0, 200000);
                     }else{
                         mSb_size.setMax(areaArray[areaArray.length - 2]);
+                        mRsb_size.setRangeValues(0, areaArray[areaArray.length - 2]);
                     }
 
                     //Imgproc.cvtColor(dstMat, dstMat, Imgproc.COLOR_RGB2RGBA);
@@ -772,7 +737,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                 for(int i = 1; i < nLabels; i++){
 
                     int area = mAreaArray[i];
-                    if(area > progress){
+                    if(progress < area && area < 200000){
                         int x = mXArray[i];
                         int y = mYArray[i];
                         int width = mWidthArray[i];
@@ -800,6 +765,46 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
 
             }
         });
+
+        //SizeでFilterをかけるRnageSeekbarの設定
+        mRsb_size = (RangeSeekBar<Integer>)mView_analyze_imageData.findViewById(R.id.rangeSeekBar_size);
+        mRsb_size.setSelectedMinValue(0);
+        mRsb_size.setEnabled(false);
+
+        mRsb_size.setOnRangeSeekBarChangeListener(new RangeSeekBar.OnRangeSeekBarChangeListener<Integer>() {
+            @Override
+            public void onRangeSeekBarValuesChanged(RangeSeekBar<?> bar, Integer minValue, Integer maxValue) {
+                System.loadLibrary("opencv_java3");
+                Mat srcMat = new Mat();
+                Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
+                Imgproc.cvtColor(srcMat, srcMat, Imgproc.COLOR_RGBA2RGB);
+
+                int nLabels = mXArray.length;
+                int count = 0;
+                for(int i = 1; i < nLabels; i++){
+
+                    int area = mAreaArray[i];
+                    Log.d("mTabMainActivity", "minvalue = " + minValue);
+                    Log.d("mTabMainActivity", "maxValue = " + maxValue);
+
+                    if(minValue < area && area < maxValue){
+                        int x = mXArray[i];
+                        int y = mYArray[i];
+                        int width = mWidthArray[i];
+                        int height = mHeightArray[i];
+                        Imgproc.rectangle(srcMat, new Point(x, y), new Point(x+width,y+height), new Scalar(0, 255, 255), 10);
+                        count++;
+                    }
+                }
+
+                mConnectComBitmap = Bitmap.createBitmap(srcMat.width(), srcMat.height(), Bitmap.Config.ARGB_8888);
+                Utils.matToBitmap(srcMat, mConnectComBitmap);
+                mImageView.setImageBitmap(mConnectComBitmap);
+
+                srcMat.release();
+            }
+        });
+
     }
 
     public Mat calc(Mat dstMat){
