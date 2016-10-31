@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,6 +13,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.io.File;
+import java.util.ArrayList;
 
 import io.realm.Realm;
 import io.realm.RealmList;
@@ -32,6 +32,7 @@ public class ImageDataListRecyclerAdapter
     private static RealmList<CapturedImageObject> mCapturedImageList;
     public static View mCardView;
     public static Activity tabMainActivity;
+    public static ArrayList<Bitmap> mBitmapList;
 
     public static class ItemViewHolder extends RecyclerView.ViewHolder{
 
@@ -52,7 +53,6 @@ public class ImageDataListRecyclerAdapter
                 public void onClick(View v) {
 
                     int position = Integer.parseInt((mTextView.getText()).toString()) - 1;
-                    Log.d("mImageDataList", "n = " + position);
 
                     //File imageFile = new File(mCapturedImageList.get(position).getFilePath());
                     //BitmapFactory.Options options = new BitmapFactory.Options();
@@ -61,8 +61,6 @@ public class ImageDataListRecyclerAdapter
                     //Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
                     ExpandImageDialogFragment exImageDialogFragment = ExpandImageDialogFragment.newInstance(mCapturedImageList.get(position).getFilePath());
                     exImageDialogFragment.show(tabMainActivity.getFragmentManager(), "ExpandImageDialogFragment");
-
-
                 }
             });
 
@@ -70,18 +68,14 @@ public class ImageDataListRecyclerAdapter
                 @Override
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     int position = Integer.parseInt((mTextView.getText()).toString()) -1;
-                    Log.d("ImageDataList", "check = " + mCheckBox.isChecked());
                     //Realmを更新してcheck状況を保存する
                     Realm realm = Realm.getDefaultInstance();
                     realm.beginTransaction();
                     mCapturedImageList.get(position).setIsChecked(mCheckBox.isChecked());
                     realm.commitTransaction();
                     realm.close();
-
                 }
             });
-
-
         }
     }
 
@@ -89,6 +83,16 @@ public class ImageDataListRecyclerAdapter
     public ImageDataListRecyclerAdapter(RealmList<CapturedImageObject> capturedImageList, Activity tabMainActivity){
         this.mCapturedImageList = capturedImageList;
         this.tabMainActivity = tabMainActivity;
+        this.mBitmapList = new ArrayList<Bitmap>(mCapturedImageList.size());
+
+        for(int i = 0; i < mCapturedImageList.size(); i++){
+            File imageFile = new File(mCapturedImageList.get(i).getFilePath());
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = false;
+            options.inSampleSize = 4;
+            Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
+            mBitmapList.add(imageBitmap);
+        }
     }
 
     @Override
@@ -100,15 +104,15 @@ public class ImageDataListRecyclerAdapter
     @Override
     public void onBindViewHolder(ItemViewHolder holder, int position) {
 
-        File imageFile = new File(mCapturedImageList.get(position).getFilePath());
+        //File imageFile = new File(mCapturedImageList.get(position).getFilePath());
         //実際に表示するサイズ(ImageView)より大きいBitmapを読み込むとメモリの無駄(重くなる)
         //ので、効率的に読み込む(小さくして読み込む)
-        BitmapFactory.Options options = new BitmapFactory.Options();
+        //BitmapFactory.Options options = new BitmapFactory.Options();
         //inJustDecodeBoundsをtrueにすると、Bitmapがメモリに展開されない。
         //代わりにoutHeight, outWidth, outMimeTypeプロパティに読み込んだ画像の情報がセットされる。
-        options.inJustDecodeBounds = true;
+        //options.inJustDecodeBounds = true;
 
-        decodeFile(imageFile.getAbsolutePath(), options);
+        //decodeFile(imageFile.getAbsolutePath(), options);
 
         //画像のサイズがわかったので、縮小して読み込むのかそのまま読み込むか決める
         //大体ImageViewに合わせるのが良い
@@ -118,24 +122,13 @@ public class ImageDataListRecyclerAdapter
 
         //・・・が、mImageViewの大きさが0になる・・画像が当てはまるまで決まらない？
         //ので、全体のCardViewのHeightとWidthを使って計算する。
-        mCardView.measure(mCardView.getMeasuredWidth(), mCardView.getMeasuredHeight());
-        int height = mCardView.getMeasuredHeight();
-        int width = mCardView.getMeasuredWidth();
-        int inSampleSize = calculateSampleSize(options, width, height);
-
-        //Log.d("mImageDataList", "inSampleSize = " + inSampleSize);
-        //inSampleSizeをセットしてデコードする
-        options.inJustDecodeBounds = false;
-        //先程計算した縮尺値を指定
-        //options.inSampleSize = inSampleSize;
-        options.inSampleSize = 8;
-        Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
+        //mCardView.measure(mCardView.getMeasuredWidth(), mCardView.getMeasuredHeight());
+        //int height = mCardView.getMeasuredHeight();
+        //int width = mCardView.getMeasuredWidth();
+        //int inSampleSize = calculateSampleSize(options, width, height);
 
         //openCVテスト用
-        holder.mImageView.setImageBitmap(imageBitmap);
-        //使い終わったimageBitmapをリサイクル
-        //imageBitmap.recycle();
-
+        holder.mImageView.setImageBitmap(mBitmapList.get(position));
 
         //TextViewに画像のナンバーを入力
         holder.mTextView.setText(String.valueOf(position+1));

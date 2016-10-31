@@ -17,6 +17,7 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -25,19 +26,27 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
+import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.florescu.android.rangeseekbar.RangeSeekBar;
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.series.BarGraphSeries;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.DataPointInterface;
+import com.jjoe64.graphview.series.LineGraphSeries;
+import com.jjoe64.graphview.series.OnDataPointTapListener;
+import com.jjoe64.graphview.series.Series;
+
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.Utils;
-import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
@@ -46,16 +55,25 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
+import io.apptik.widget.MultiSlider;
 import io.realm.Realm;
 import io.realm.RealmList;
 import io.realm.RealmResults;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.calculator.MakeHistogramDistribution;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.calculator.MeanIntensityCalcTask;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.CapturedImageObject;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.MeasuredDateAndDataObject;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.UserObject;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomImageView;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomItemDecoration;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomRecyclerItemClickListener;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomViewPager;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.analyzedata.ImageDataListRecyclerAdapter;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.analyzedata.MeasuredDateListRecycleAdapter;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.camera.CameraActivity;
@@ -63,7 +81,9 @@ import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.camera.CameraAct
 import static android.graphics.BitmapFactory.decodeFile;
 
 public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPageChangeListener,
-        PageFragment.OnFragmentInteractionListener{
+        ViewPager.OnTouchListener, PageFragment.OnFragmentInteractionListener {
+
+    static{System.loadLibrary("opencv_java3");}
 
     //User
     private UserObject mUserObject;
@@ -76,17 +96,21 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
     FrameLayout mFL_DataAnalysis;
     FrameLayout mFL_History;
 
+    //ViewPager
+    ViewPager mViewPager;
+    CustomViewPager mCustomViewPager;
+
     //各View
     //Camera
     View mView_camera_config;
 
     //DataAnalysis
-    //1ページ
+    //1ページ 日付選択ページ
     View mView_select_measuredDate;
     RecyclerView mSelectMeasureDateRecyclerView;
     RecyclerView.LayoutManager mSelectMeasureDateLayoutManager;
     RecyclerView.Adapter mSelectMeasureDateAdapter;
-    //2ページ
+    //2ページ 画像選択ページ
     View mView_select_imageData;
     RecyclerView mSelectImageRecyclerView;
     RecyclerView.LayoutManager mSelectImageLayoutManager;
@@ -94,25 +118,40 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
     FloatingActionButton mFab_plus, mFab_analysis, mFab_delete;
     Animation mFabOpen, mFabClose, mFabRClockwise,  mFabRanticlockwise;
     boolean isOpen =false;
-    //3ページ
-    Mat mSrcMat;
-    View mView_analyze_imageData;
-    ImageView mImageView;
-    Bitmap mAnalyzedImageBitmap;
-    Bitmap mGrayImageBitmap;
-    Bitmap mThreshImageBitmap;
-    Bitmap mErodeImageBitmap;
-    Bitmap mMaskedImageBitmap;
-    Bitmap mConnectComBitmap;
-    SeekBar mSb_threshold;
-    SeekBar mSb_size;
-    RangeSeekBar<Integer> mRsb_size;
+    boolean isGrayThresh = false;
+    //3ページ 画像処理ページ
+    int mAnalyzeState;
+    int NONE = 0;
+    int GRAY_SCALE = 1;
+    int THRESHOLD = 2;
+    int FIND_CONTOUR = 3;
 
-    int[] mXArray;
-    int[] mYArray;
-    int[] mWidthArray;
-    int[] mHeightArray;
-    int[] mAreaArray;
+    int mDatePosition;
+    int[] mCheckedImageNumArray;
+    int mDisplayedImageNum;
+    int mDetectMinSize = 10;
+    int mDetectMaxSize = 1000;
+    int mDrawMinSize = 11;
+    int mDrawMaxSize = 999;
+    TextView mTextView_SizeRange;
+    Mat mSrcMat;
+    Mat mGrayImageMat;
+    Mat mThreshImageMat;
+    Mat mMaskedImageMat;
+    Mat mContourMat;
+    View mView_analyze_imageData;
+    CustomImageView mCustomImageView;
+    SeekBar mSb_threshold;
+    //SeekBar mSb_size;
+    MultiSlider mMS_size;
+
+    double[] mContourAreaArray;
+    List<MatOfPoint> mAllDetectedContours;
+    ArrayList<Rect> mRectList;
+    ArrayList<Rect> mDrawnRectList;
+
+    //4ページ 画像解析結果
+    View mView_analyze_result;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -177,11 +216,13 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
 
         toolbar.setTitle("TabLayoutTest");
         toolbar.setSubtitle(mUserObject.getName());
+        setSupportActionBar(toolbar);
 
         //xmlからTabLayoutの取得
         TabLayout tabLayout = (TabLayout)findViewById(R.id.tabs);
         //xmlからViewPagerの取得
-        ViewPager viewPager = (ViewPager)findViewById(R.id.pager);
+        //mViewPager = (ViewPager)findViewById(R.id.pager);
+        mCustomViewPager = (CustomViewPager)findViewById(R.id.customViewPager);
         //ページタイトル配列
         final String[] pageTitle = {"CAMERA", "ANALYZE DATA", "HISTORY"};
 
@@ -203,12 +244,13 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         //作成したページアダプターにListを渡し、
         //アダプターをviewPagerにセット
         CustomPagerAdapter cpa = new CustomPagerAdapter(viewList, pageTitle);
-        viewPager.setAdapter(cpa);
-        viewPager.addOnPageChangeListener(this);
-
+        //mViewPager.setAdapter(cpa);
+        mCustomViewPager.setAdapter(cpa);
+        //mViewPager.addOnPageChangeListener(this);
+        mCustomViewPager.addOnPageChangeListener(this);
         //ViewPagerをTabLayoutを設定
-        tabLayout.setupWithViewPager(viewPager);
-
+        //tabLayout.setupWithViewPager(mViewPager);
+        tabLayout.setupWithViewPager(mCustomViewPager);
     }
 
     //カメラタブのカメラページの設定
@@ -229,7 +271,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                 startActivity(intent);
             }
         });
-
 
         //スピナーの文字サイズを変えるための設定(Adapterを用意してspinnerにセットする
         ArrayAdapter<String> adapterHour = new ArrayAdapter<String>(TabMainActivity.this, R.layout.spinner_item_design_for_cam, this.getResources().getStringArray(R.array.hour_list));
@@ -265,8 +306,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                 //スピナーでは呼ばれないが、消せないので「おまじない」
             }
         });
-
-
     }
 
     //AnalysisDataのページ設定
@@ -379,115 +418,145 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             }
         });
 
-
-
+        mFL_DataAnalysis.removeView(mView_select_measuredDate);
         mFL_DataAnalysis.addView(mView_select_imageData);
     }
 
+    //3ページ目  画像を解析(Gray, Threshold, Erode, FindContour等)
     public void createDataAnalysisThirdPage(int date_position){
 
-        System.loadLibrary("opencv_java3");
-
+        //3ページ目　Viewの設定
         mView_analyze_imageData = getLayoutInflater().inflate(R.layout.view_analyze_imagedata, null);
-        mImageView = (ImageView)mView_analyze_imageData.findViewById(R.id.imageView_analyzeimage);
-
+        //mImageView = (ImageView)mView_analyze_imageData.findViewById(R.id.imageView_analyzeimage);
+        mCustomImageView = (CustomImageView)mView_analyze_imageData.findViewById(R.id.customImageView_analyzeimage);
         RealmList<MeasuredDateAndDataObject> dateAndDataList = mUserObject.getMeasuredDateAndDataList();
         RealmList<CapturedImageObject> captureImageList = dateAndDataList.get(date_position).getCapturedImages();
+        mCustomViewPager.setFrameLayout(mFL_DataAnalysis, mView_analyze_imageData);
+        mTextView_SizeRange = (TextView)mView_analyze_imageData.findViewById(R.id.textView_sizerange);
+        mDatePosition = date_position;
 
+        mAnalyzeState = NONE;
         //imageViewにチェックされている画像のデータを入れていく？
         //チェックされている画像がどれなのか数字が必要
         File imageFile = null;
-        int imageNumber;
+        int checkedImageTotalNumber = 0;
+        int[] checkedImageNumArray = new int[captureImageList.size()];
         for(int i = 0; i < captureImageList.size(); i++){
             CapturedImageObject capturedImage = captureImageList.get(i);
             if(capturedImage.getChecked() == true){
-                imageFile = new File(capturedImage.getFilePath());
-                imageNumber = i;
-                break;
+                if(checkedImageTotalNumber == 0) {
+                    imageFile = new File(capturedImage.getFilePath());
+                }
+                checkedImageNumArray[checkedImageTotalNumber] = i;
+                checkedImageTotalNumber++;
             }
         }
 
+        mCheckedImageNumArray = new int[checkedImageTotalNumber];
+        mCheckedImageNumArray = Arrays.copyOf(checkedImageNumArray, checkedImageTotalNumber);
+        mDisplayedImageNum = 0;
+        mFL_DataAnalysis.getParent().requestDisallowInterceptTouchEvent(true);
+        TextView textViewPageNum = (TextView)mView_analyze_imageData.findViewById(R.id.textView_imagepages);
+        textViewPageNum.setText((mDisplayedImageNum+1) + "/" + mCheckedImageNumArray.length);
+
+        //イメージファイルがnullかどうかでチェックされたイメージがあるかを確認する
         if(imageFile != null) {
             BitmapFactory.Options options = new BitmapFactory.Options();
-//            options.inJustDecodeBounds = true;
-//            decodeFile(imageFile.getAbsolutePath(), options);
-//            LinearLayout ll_analyze_image = (LinearLayout) mView_analyze_imageData.findViewById(R.id.ll_analyze_imagedata);
-//            ll_analyze_image.measure(ll_analyze_image.getMeasuredWidth(), ll_analyze_image.getMeasuredHeight());
-//            int height = ll_analyze_image.getMeasuredHeight();
-//            int width = ll_analyze_image.getMeasuredWidth();
-//            int inSampleSize = calculateSampleSize(options, width, height);
             //とりあえずinSampleSizeは1で。
             options.inJustDecodeBounds = false;
             options.inSampleSize = 1;
-            mAnalyzedImageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
+            Bitmap analyzedImageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
+            mSrcMat = new Mat();
+            Utils.bitmapToMat(analyzedImageBitmap, mSrcMat);
+            //mImageView.setImageBitmap(mAnalyzedImageBitmap);
+            mCustomImageView.setImageBitmap(analyzedImageBitmap);
 
-            mImageView.setImageBitmap(mAnalyzedImageBitmap);
-
+            mFL_DataAnalysis.removeView(mView_select_imageData);
             mFL_DataAnalysis.addView(mView_analyze_imageData);
-
-            mImageView.measure(mImageView.getMeasuredWidth(), mImageView.getMeasuredHeight());
-            int height = mImageView.getMeasuredHeight();
-            int width = mImageView.getMeasuredWidth();
         }else{
             Toast.makeText(this, "Please check one image at least !", Toast.LENGTH_SHORT).show();
         }
 
-        //元に戻すButton設定
+        //次のイメージに進めるButton設定
+        Button btnNextImage = (Button)mView_analyze_imageData.findViewById(R.id.btn_nextpage);
+        btnNextImage.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                mDisplayedImageNum += 1;
+                if(mDisplayedImageNum == mCheckedImageNumArray.length){
+                    mDisplayedImageNum = 0;
+                }
+                TextView textViewPageNum = (TextView)mView_analyze_imageData.findViewById(R.id.textView_imagepages);
+                textViewPageNum.setText((mDisplayedImageNum+1) + "/" + mCheckedImageNumArray.length);
+                //ImageViewにSetしたイメージを変更する
+                changeDisplayImage();
+            }
+        });
+
+        //前のイメージに戻るButton設定
+        Button btnPreviousImage = (Button)mView_analyze_imageData.findViewById(R.id.btn_previouspage);
+        btnPreviousImage.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                mDisplayedImageNum -= 1;
+                if (mDisplayedImageNum == -1) {
+                    mDisplayedImageNum = mCheckedImageNumArray.length - 1;
+                }
+                TextView textViewPageNum = (TextView) mView_analyze_imageData.findViewById(R.id.textView_imagepages);
+                textViewPageNum.setText((mDisplayedImageNum + 1) + "/" + mCheckedImageNumArray.length);
+                //ImageViewにSetしたイメージを変更する
+                changeDisplayImage();
+            }
+        });
+
+        //画像を元に戻すButton設定
         Button btnReset = (Button)mView_analyze_imageData.findViewById(R.id.btn_reset);
         btnReset.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
-                System.loadLibrary("opencv_java3");
-                mImageView.setImageBitmap(null);
-                mImageView.setImageBitmap(mAnalyzedImageBitmap);
+                mCustomImageView.setImageBitmap(null);
+                Bitmap srcImageBitmap = Bitmap.createBitmap(mSrcMat.width(), mSrcMat.height(), Bitmap.Config.ARGB_8888);
+                Utils.matToBitmap(mSrcMat, srcImageBitmap);
+                mCustomImageView.setImageBitmap(srcImageBitmap);
             }
         });
 
         //グレイスケール用のButtonの設定
         Button btnGray = (Button)mView_analyze_imageData.findViewById(R.id.btn_gray);
-
         btnGray.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                System.loadLibrary("opencv_java3");
-                mSrcMat = new Mat();
-                Utils.bitmapToMat(mAnalyzedImageBitmap, mSrcMat);
-                Mat grayMat = new Mat();
-                Imgproc.cvtColor(mSrcMat, grayMat, Imgproc.COLOR_RGB2GRAY);
-                mGrayImageBitmap = Bitmap.createBitmap(grayMat.width(), grayMat.height(), Bitmap.Config.ARGB_8888);
-                //白黒反転
-                //Core.bitwise_not(grayMat, grayMat);
-                Utils.matToBitmap(grayMat, mGrayImageBitmap);
-                mImageView.setImageBitmap(mGrayImageBitmap);
-                //mSrcMat.release();
-                grayMat.release();
+                mAnalyzeState = GRAY_SCALE;
+                setGlayScaleImage();
             }
         });
 
-        //反転(inveret)用のButtonの設定
-        Button btnInvert = (Button)mView_analyze_imageData.findViewById(R.id.btn_invert);
-        btnInvert.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(mGrayImageBitmap != null){
-                    System.loadLibrary("opencv_java3");
-                    Mat srcMat = new Mat();
-                    Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
-                    Mat grayMat = new Mat();
-                    Imgproc.cvtColor(srcMat, grayMat, Imgproc.COLOR_RGB2GRAY);
-                    mGrayImageBitmap = Bitmap.createBitmap(grayMat.width(), grayMat.height(), Bitmap.Config.ARGB_8888);
-                    //白黒反転
-                    Core.bitwise_not(grayMat, grayMat);
-                    Utils.matToBitmap(grayMat, mGrayImageBitmap);
-                    mImageView.setImageBitmap(mGrayImageBitmap);
-                    srcMat.release();
-                    grayMat.release();
-                }
-
-            }
-        });
+//        //反転(inveret)用のButtonの設定
+//        Button btnInvert = (Button)mView_analyze_imageData.findViewById(R.id.btn_invert);
+//        btnInvert.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                if(mGrayImageBitmap != null){
+//                    System.loadLibrary("opencv_java3");
+//                    Mat srcMat = new Mat();
+//                    Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
+//                    Mat grayMat = new Mat();
+//                    Imgproc.cvtColor(srcMat, grayMat, Imgproc.COLOR_RGB2GRAY);
+//                    mGrayImageBitmap = Bitmap.createBitmap(grayMat.width(), grayMat.height(), Bitmap.Config.ARGB_8888);
+//                    //白黒反転
+//                    Core.bitwise_not(grayMat, grayMat);
+//                    Utils.matToBitmap(grayMat, mGrayImageBitmap);
+//                    //mImageView.setImageBitmap(mGrayImageBitmap);
+//                    mCustomImageView.setImageBitmap(mGrayImageBitmap);
+//                    srcMat.release();
+//                    grayMat.release();
+//                }
+//
+//            }
+//        });
 
         //ThresholdのSeekBarの設定
+        //Gray and Color 両対応
         mSb_threshold = (SeekBar)mView_analyze_imageData.findViewById(R.id.seekBar_thresh);
         mSb_threshold.setEnabled(false);
         final View toastlayout = getLayoutInflater().inflate(R.layout.toast_layout, null);
@@ -496,26 +565,16 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         mSb_threshold.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                System.loadLibrary("opencv_java3");
+                mAnalyzeState = THRESHOLD;
                 //mThreshImageBitmap = mGrayImageBitmap;
                 //mImageView.setImageBitmap(mGrayImageBitmap);
                 toastText.setText("Threshold " + progress);
                 Log.d("mTabMainActivity", "thresh = " + progress);
                 //まずグレイスケール用のmatを用意し、
-                //Bitmapからmatに変換する
-                Mat grayMat = new Mat();
-                Utils.bitmapToMat(mGrayImageBitmap, grayMat);
+
                 //プログレスバーの値を閾値として設定する。
                 //threshold用のmatを用意して、grayMatにthresholdを適用したものを入れる。
-                Mat thresholdMat = new Mat();
-                Imgproc.threshold(grayMat, thresholdMat, progress, 255, Imgproc.THRESH_BINARY);
-
-                mThreshImageBitmap = Bitmap.createBitmap(thresholdMat.width(), thresholdMat.height(), Bitmap.Config.ARGB_8888);
-                Utils.matToBitmap(thresholdMat, mThreshImageBitmap);
-                mImageView.setImageBitmap(mThreshImageBitmap);
-                grayMat.release();
-                thresholdMat.release();
-
+                setThresholdImage();
             }
 
             @Override
@@ -534,54 +593,52 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         btnThreshold.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
-
-                if(mGrayImageBitmap == null && mThreshImageBitmap == null){
+                isGrayThresh = false;
+                if(mGrayImageMat == null && mThreshImageMat == null){
                     Toast.makeText(TabMainActivity.this, "Please change grayscale first", Toast.LENGTH_SHORT).show();
-                }else if(mGrayImageBitmap !=null && mThreshImageBitmap == null){
-                    mImageView.setImageBitmap(mGrayImageBitmap);
+                }else if(mGrayImageMat !=null && mThreshImageMat == null){
+                    //mImageView.setImageBitmap(mGrayImageBitmap);
+                    Bitmap srcImageBitmap = Bitmap.createBitmap(mSrcMat.width(), mSrcMat.height(), Bitmap.Config.ARGB_8888);
+                    Utils.matToBitmap(mSrcMat, srcImageBitmap);
+                    mCustomImageView.setImageBitmap(srcImageBitmap);
                     mSb_threshold.setEnabled(true);
-                    mSb_size.setEnabled(false);
-                }else if(mThreshImageBitmap != null){
-                    mImageView.setImageBitmap(mThreshImageBitmap);
+                    mMS_size.setEnabled(false);
+                }else if(mMaskedImageMat != null){
+                    //mImageView.setImageBitmap(mThreshImageBitmap);
+                    Bitmap maskedImageBitmap = Bitmap.createBitmap(mMaskedImageMat.width(), mMaskedImageMat.height(), Bitmap.Config.ARGB_8888);
+                    Utils.matToBitmap(mMaskedImageMat, maskedImageBitmap);
+                    mCustomImageView.setImageBitmap(maskedImageBitmap);
                     mSb_threshold.setEnabled(true);
-                    mSb_size.setEnabled(false);
+                    mMS_size.setEnabled(false);
                 }
-
             }
         });
 
-        //Mask用(マスク用)のButton設定
-        Button btnMask = (Button)mView_analyze_imageData.findViewById(R.id.btn_mask);
-        btnMask.setOnClickListener(new View.OnClickListener() {
+        //GrayThreshold用のButtonの設定
+        Button btnGrayThreshold = (Button)mView_analyze_imageData.findViewById(R.id.btn_graythresh);
+        btnGrayThreshold.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
-                System.loadLibrary("opencv_java3");
-                Mat thresholdMat = new Mat();
-                Utils.bitmapToMat(mThreshImageBitmap, thresholdMat);
-                //マスクなので1チャンネルにする
-                Imgproc.cvtColor(thresholdMat, thresholdMat, Imgproc.COLOR_RGB2GRAY);
-
-                //マスクをかけるsrcを呼び出す
-                Mat srcMat = new Mat();
-                Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
-                //Imgproc.cvtColor(srcMat, srcMat, Imgproc.COLOR_RGBA2RGB);
-
-                Mat maskedMat = new Mat();
-                //maskedMat = Mat.zeros(srcMat.width(), srcMat.height(), srcMat.type());
-                //マスクをかける
-                srcMat.copyTo(maskedMat, thresholdMat);
-                //Core.bitwise_and(srcMat, thresholdMat, srcMat);
-
-                //Imgproc.cvtColor(maskedMat, maskedMat, Imgproc.COLOR_RGBA2RGB);
-                mMaskedImageBitmap = Bitmap.createBitmap(maskedMat.width(), maskedMat.height(), Bitmap.Config.ARGB_8888);
-
-                Utils.matToBitmap(maskedMat, mMaskedImageBitmap);
-                mImageView.setImageBitmap(mMaskedImageBitmap);
-
-                srcMat.release();
-                thresholdMat.release();
-                maskedMat.release();
-
+                isGrayThresh = true;
+                if(mGrayImageMat == null && mThreshImageMat == null){
+                    Toast.makeText(TabMainActivity.this, "Please change grayscale first", Toast.LENGTH_SHORT).show();
+                }else if(mGrayImageMat !=null && mThreshImageMat == null){
+                    //mImageView.setImageBitmap(mGrayImageBitmap);
+                    Bitmap grayImageBitmap = Bitmap.createBitmap(mGrayImageMat.width(), mGrayImageMat.height(), Bitmap.Config.ARGB_8888);
+                    Utils.matToBitmap(mGrayImageMat, grayImageBitmap);
+                    mCustomImageView.setImageBitmap(grayImageBitmap);
+                    mSb_threshold.setEnabled(true);
+                    //mSb_size.setEnabled(false);
+                    mMS_size.setEnabled(false);
+                }else if(mThreshImageMat != null){
+                    //mImageView.setImageBitmap(mThreshImageBitmap);
+                    Bitmap maskedImageBitmap = Bitmap.createBitmap(mMaskedImageMat.width(), mMaskedImageMat.height(), Bitmap.Config.ARGB_8888);
+                    Utils.matToBitmap(mMaskedImageMat, maskedImageBitmap);
+                    mCustomImageView.setImageBitmap(maskedImageBitmap);
+                    mSb_threshold.setEnabled(true);
+                    //mSb_size.setEnabled(false);
+                    mMS_size.setEnabled(false);
+                }
             }
         });
 
@@ -590,225 +647,382 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         btnErode.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                System.loadLibrary("opencv_java3");
-                Mat thresholdMat = new Mat();
-                Utils.bitmapToMat(mThreshImageBitmap, thresholdMat);
-                Mat erodeMat = new Mat();
+                if(mThreshImageMat != null) {
+                    mMaskedImageMat = new Mat();
 
-                Imgproc.erode(thresholdMat, erodeMat, new Mat());
-                mErodeImageBitmap = Bitmap.createBitmap(erodeMat.width(), erodeMat.height(), Bitmap.Config.ARGB_8888);
-                Utils.matToBitmap(erodeMat, mErodeImageBitmap);
-                mImageView.setImageBitmap(mErodeImageBitmap);
-                erodeMat.release();
-                thresholdMat.release();
+                    Imgproc.erode(mThreshImageMat, mThreshImageMat, new Mat());
+
+                    if(isGrayThresh){
+                        mGrayImageMat.copyTo(mMaskedImageMat, mThreshImageMat);
+                    }else{
+                        mSrcMat.copyTo(mMaskedImageMat, mThreshImageMat);
+                    }
+
+                    Bitmap erodedImageBitmap = Bitmap.createBitmap(mMaskedImageMat.width(), mMaskedImageMat.height(), Bitmap.Config.ARGB_8888);
+                    Utils.matToBitmap(mMaskedImageMat, erodedImageBitmap);
+                    mCustomImageView.setImageBitmap(erodedImageBitmap);
+                }
             }
         });
 
-        //connectedComponetnsWithStats用のボタン設定
-        Button btn_connectComponents = (Button)findViewById(R.id.btn_connectComponents);
-        btn_connectComponents.setOnClickListener(new View.OnClickListener() {
+        //FindContours用のボタン
+        Button btnFindContours = (Button)mView_analyze_imageData.findViewById(R.id.btn_findcontour);
+        btnFindContours.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(mThreshImageBitmap != null){
+                if(mThreshImageMat != null && mMaskedImageMat != null) {
+                    mAnalyzeState = FIND_CONTOUR;
+                    setFindContourImage(true);
+                }
+            }
+        });
 
-                    //Thresholdのbarを使えなくし、Sizeのseekbarを使えるようにする
-                    mSb_threshold.setEnabled(false);
-                    mSb_size.setEnabled(true);
-                    mRsb_size.setEnabled(true);
+        //SizeでFilterをかけるMultiSliderの設定
+        mMS_size = (MultiSlider)mView_analyze_imageData.findViewById(R.id.multislider_size);
+        mMS_size.setMin(0);
+        mMS_size.setEnabled(false);
+        mMS_size.setOnThumbValueChangeListener(new MultiSlider.OnThumbValueChangeListener(){
+            @Override
+            public void onValueChanged(MultiSlider multiSlider, MultiSlider.Thumb thumb, int thumbIndex, int value) {
+                if(thumbIndex == 0){
+                    mDrawMinSize = value;
+                    mTextView_SizeRange.setText("Min : " + mDrawMinSize + " - Max : " + mDrawMaxSize);
+                    Log.d("mTabMainActivity" , "MinChange : " + value );
+                }else if(thumbIndex == 1){
+                    mDrawMaxSize = value;
+                    mTextView_SizeRange.setText("Min : " + mDrawMinSize + " - Max : " + mDrawMaxSize);
+                    Log.d("mTabMainActivity", "MaxChange : " + value);
+                }
+                setFindContourImage(false);
+            }
+        });
 
-                    System.loadLibrary("opencv_java3");
+        //Rect中のピクセル値の平均値の並列計算ボタン
+        Button btnCalc = (Button)mView_analyze_imageData.findViewById(R.id.btn_calcmean);
+        btnCalc.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
 
-                    //閾値処理を行ったMatをBitmapから変換する
-                    //CV_8UC1でないと処理できないので、RGB2GRAYをかける
-                    //また、dstMatにthresholdMatをdeepcopyする
-                    Mat thresholdMat = new Mat();
-                    Utils.bitmapToMat(mThreshImageBitmap, thresholdMat);
-                    //Mat dstMat = new Mat(thresholdMat.width(), thresholdMat.height(), thresholdMat.type());
-                    Imgproc.cvtColor(thresholdMat, thresholdMat, Imgproc.COLOR_RGB2GRAY);
+                double[] calcResultsArray = new double[mDrawnRectList.size()];
+                if(mAnalyzeState == FIND_CONTOUR && mDrawnRectList != null) {
+                    int threadNumber = 1;
+                    ExecutorService executor = Executors.newFixedThreadPool(threadNumber);
+                    //タスクリストを作製する
+                    List<Callable<Double>> tasks = new ArrayList<Callable<Double>>();
 
-                    //Roiを重ね合わせるsrcの画像を呼び出す
-                    Mat srcMat = new Mat();
-                    Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
+                    //for (int i = 0; i < 2; i++) {
+                    for (int i = 0; i < mDrawnRectList.size(); i++) {
+                        tasks.add(new MeanIntensityCalcTask(mDrawnRectList.get(i)));
+                    }
 
-                    //ラベリング結果用のMat
-                    Mat labelImageMat = new Mat();
-                    //Left, Top, WIDTH, HEIGHT, AREA, MAX
-                    Mat statMat = new Mat();
-                    //重心用
-                    Mat centroidMat = new Mat();
+                    MeanIntensityCalcTask.setImageMat(mContourMat);
 
-                    //connectedComponentsWithStatsで、返り値がintとして、
-                    //ラベルした数が返ってくる (nLabels)
-                    int nLabels = Imgproc.connectedComponentsWithStats(thresholdMat, labelImageMat, statMat, centroidMat, 8, 4);
+                    try{
+                        //並列計算実行
+                        List<Future<Double>> futures;
 
-                    //statMat.get(x, y)  x : i(ラベル数)   y : stateの数
-                    //y = 0 : LEFT,  y = 1 : TOP,  y = 2 : WIDTH
-                    //y = 3 : HEIGHT, y = 4 : AREA, y = 5 : MAX???
+                        try{
+                            futures = executor.invokeAll(tasks);
+                        }catch(InterruptedException e){
+                            Log.e("mTabMainActivity", "e = " + e);
+                            return;
+                        }
 
-                    //ラベルしたオブジェクトにそれぞれ四角のROIをあてはめる
-                    //srcMatのTypeを変える8UC4→8UC3
-                    Imgproc.cvtColor(srcMat, srcMat, Imgproc.COLOR_RGBA2RGB);
+                        //結果をresultsに入れる
+                        for(int i = 0; i < mDrawnRectList.size(); i++){
+                            try{
+                                calcResultsArray[i] = (futures.get(i)).get();
+                            }catch(Exception e){
+                                Log.e("mTabMainActivity", "e = " + e);
+                            }
+                        }
 
-                    mXArray = new int[nLabels];
-                    mYArray = new int[nLabels];
-                    mWidthArray = new int[nLabels];
-                    mHeightArray = new int[nLabels];
-                    mAreaArray = new int[nLabels];
-                    //念のため最初の背景の値(0)を代入
-                    mXArray[0] = (int)statMat.get(0, 0)[0];
-                    mYArray[0] =  (int)statMat.get(0, 1)[0];
-                    mWidthArray[0] = (int)statMat.get(0, 2)[0];
-                    mHeightArray[0] =  (int)statMat.get(0, 3)[0];
-                    mAreaArray[0] =  (int)statMat.get(0, 4)[0];
-
-                    //i = 0は背景にラベルされるので カウント(i)は1からはじめる
-                    int count = 0;
-                    for(int i = 1; i < nLabels; i++){
-
-                        mXArray[i] = (int)statMat.get(i, 0)[0];
-                        mYArray[i] =  (int)statMat.get(i, 1)[0];
-                        mWidthArray[i] = (int)statMat.get(i, 2)[0];
-                        mHeightArray[i] =  (int)statMat.get(i, 3)[0];
-                        mAreaArray[i] =  (int)statMat.get(i, 4)[0];
-
-                        int area = (int)statMat.get(i, 4)[0];
-                        if(area > mSb_size.getProgress()){
-                            int x = (int)statMat.get(i, 0)[0];
-                            int y = (int)statMat.get(i, 1)[0];
-                            int width = (int)statMat.get(i, 2)[0];
-                            int height = (int)statMat.get(i, 3)[0];
-                            Imgproc.rectangle(srcMat, new Point(x, y), new Point(x+width,y+height), new Scalar(0, 255, 255), 10);
-                            count++;
+                    }finally{
+                        //終了処理
+                        if(executor != null){
+                            executor.shutdown();
                         }
                     }
-
-                    Log.d("TabMainActivity", "count = " + count);
-
-                    //seekbar_sizeのmax値(背景のラベル(0)を除く)を入れる
-                    int[] areaArray = mAreaArray.clone();
-                    Arrays.sort(areaArray);
-
-                    //現状max値が大きすぎるとbarの最大値がでかくなりすぎる。
-                    //大きすぎる場合は制限を設ける
-                    if(areaArray[areaArray.length-2] > 200000) {
-                        mSb_size.setMax(200000);
-                        mRsb_size.setRangeValues(0, 200000);
-                    }else{
-                        mSb_size.setMax(areaArray[areaArray.length - 2]);
-                        mRsb_size.setRangeValues(0, areaArray[areaArray.length - 2]);
-                    }
-
-                    //Imgproc.cvtColor(dstMat, dstMat, Imgproc.COLOR_RGB2RGBA);
-                    //srcMatをdstMat側にTypeをあわせる8UC4→8UC3
-                    //Core.add(srcMat, dstMat, dstMat);
-
-                    mConnectComBitmap = Bitmap.createBitmap(srcMat.width(), srcMat.height(), Bitmap.Config.ARGB_8888);
-
-                    Utils.matToBitmap(srcMat, mConnectComBitmap);
-                    mImageView.setImageBitmap(mConnectComBitmap);
-
-                    thresholdMat.release();
-                    labelImageMat.release();
-                    statMat.release();
-                    centroidMat.release();
-                    srcMat.release();
-                    //dstMat.release();
-
-                }else{
-                    Toast.makeText(TabMainActivity.this, "Please finish threshold process", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
-
-        //SizeでFilterをかけるSeekbarの設定
-        mSb_size = (SeekBar)mView_analyze_imageData.findViewById(R.id.seekBar_size);
-        mSb_size.setEnabled(false);
-
-        mSb_size.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                System.loadLibrary("opencv_java3");
-                Mat srcMat = new Mat();
-                Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
-                Imgproc.cvtColor(srcMat, srcMat, Imgproc.COLOR_RGBA2RGB);
-
-                int nLabels = mXArray.length;
-                int count = 0;
-                for(int i = 1; i < nLabels; i++){
-
-                    int area = mAreaArray[i];
-                    if(progress < area && area < 200000){
-                        int x = mXArray[i];
-                        int y = mYArray[i];
-                        int width = mWidthArray[i];
-                        int height = mHeightArray[i];
-                        Imgproc.rectangle(srcMat, new Point(x, y), new Point(x+width,y+height), new Scalar(0, 255, 255), 10);
-                        count++;
-                    }
                 }
 
-                mConnectComBitmap = Bitmap.createBitmap(srcMat.width(), srcMat.height(), Bitmap.Config.ARGB_8888);
-                Utils.matToBitmap(srcMat, mConnectComBitmap);
-                mImageView.setImageBitmap(mConnectComBitmap);
-
-                srcMat.release();
-
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
+                for(int i = 0; i < mRectList.size();  i++){
+                    Log.d("mTabMainActivity", "calcResults[" + i + "] = " + calcResultsArray[i]);
+                }
+                createDataAnalysisForthPage(calcResultsArray);
 
             }
         });
+    }
 
-        //SizeでFilterをかけるRnageSeekbarの設定
-        mRsb_size = (RangeSeekBar<Integer>)mView_analyze_imageData.findViewById(R.id.rangeSeekBar_size);
-        mRsb_size.setSelectedMinValue(0);
-        mRsb_size.setEnabled(false);
-
-        mRsb_size.setOnRangeSeekBarChangeListener(new RangeSeekBar.OnRangeSeekBarChangeListener<Integer>() {
-            @Override
-            public void onRangeSeekBarValuesChanged(RangeSeekBar<?> bar, Integer minValue, Integer maxValue) {
-                System.loadLibrary("opencv_java3");
-                Mat srcMat = new Mat();
-                Utils.bitmapToMat(mAnalyzedImageBitmap, srcMat);
-                Imgproc.cvtColor(srcMat, srcMat, Imgproc.COLOR_RGBA2RGB);
-
-                int nLabels = mXArray.length;
-                int count = 0;
-                for(int i = 1; i < nLabels; i++){
-
-                    int area = mAreaArray[i];
-                    Log.d("mTabMainActivity", "minvalue = " + minValue);
-                    Log.d("mTabMainActivity", "maxValue = " + maxValue);
-
-                    if(minValue < area && area < maxValue){
-                        int x = mXArray[i];
-                        int y = mYArray[i];
-                        int width = mWidthArray[i];
-                        int height = mHeightArray[i];
-                        Imgproc.rectangle(srcMat, new Point(x, y), new Point(x+width,y+height), new Scalar(0, 255, 255), 10);
-                        count++;
-                    }
-                }
-
-                mConnectComBitmap = Bitmap.createBitmap(srcMat.width(), srcMat.height(), Bitmap.Config.ARGB_8888);
-                Utils.matToBitmap(srcMat, mConnectComBitmap);
-                mImageView.setImageBitmap(mConnectComBitmap);
-
-                srcMat.release();
-            }
-        });
+    //GlayScale化した画像をセットする
+    private void setGlayScaleImage(){
+        mGrayImageMat = new Mat();
+        //ソースの画像をcvtColor(convertColor)でRGBからGRAYにする
+        Imgproc.cvtColor(mSrcMat, mGrayImageMat, Imgproc.COLOR_RGB2GRAY);
+        Bitmap displayImageBitmap = Bitmap.createBitmap(mGrayImageMat.width(), mGrayImageMat.height(), Bitmap.Config.ARGB_8888);
+        Imgproc.cvtColor(mSrcMat, mGrayImageMat, Imgproc.COLOR_RGB2GRAY);
+        Utils.matToBitmap(mGrayImageMat, displayImageBitmap);
+        mCustomImageView.setImageBitmap(displayImageBitmap);
 
     }
 
-    public Mat calc(Mat dstMat){
-        return dstMat;
+    //Thresholdをかけた画像をセットする
+    private void setThresholdImage(){
+        mThreshImageMat = new Mat();
+        Imgproc.threshold(mGrayImageMat, mThreshImageMat, mSb_threshold.getProgress(), 255, Imgproc.THRESH_BINARY);
+
+        mMaskedImageMat = new Mat();
+        if(isGrayThresh){
+            mGrayImageMat.copyTo(mMaskedImageMat, mThreshImageMat);
+        }else{
+            mSrcMat.copyTo(mMaskedImageMat, mThreshImageMat);
+        }
+
+        Bitmap displayImageBitmap = Bitmap.createBitmap(mGrayImageMat.width(), mGrayImageMat.height(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(mMaskedImageMat, displayImageBitmap);
+        mCustomImageView.setImageBitmap(displayImageBitmap);
+    }
+
+    //FindContourをした画像をセットする
+    private void setFindContourImage(boolean isNew){
+
+        //画像が新しい(別の画像に切り替わった)場合には
+        //もう一度、FindContourをかける
+        if(isNew == true){
+            //Thresholdのbarを使えなくし、Sizeのseekbarを使えるようにする
+            mSb_threshold.setEnabled(false);
+            //mSb_size.setEnabled(true);
+            mMS_size.setEnabled(true);
+
+            List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+            Mat hierarchy = new Mat();
+            Imgproc.findContours(mThreshImageMat, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
+
+            //mContourMat = Mat.zeros(mThreshImageMat.height(), mThreshImageMat.width(), CvType.CV_8UC3);
+            mContourMat = new Mat();
+            mMaskedImageMat.copyTo(mContourMat);
+
+            if (isGrayThresh) {
+                Imgproc.cvtColor(mContourMat, mContourMat, Imgproc.COLOR_GRAY2RGB);
+            }
+
+            //Arrayを初期化
+            double[] contourAreaArray = new double[contours.size()];
+            mRectList = new ArrayList<Rect>();
+            mDrawnRectList = new ArrayList<Rect>();
+            mAllDetectedContours = new ArrayList<MatOfPoint>();
+            List<MatOfPoint> drawContours = new ArrayList<MatOfPoint>();
+
+            int minSize, maxSize;
+            if(mDetectMinSize < mDrawMinSize){
+                minSize = mDrawMinSize;
+            }else{
+                minSize = mDetectMinSize;
+                mDrawMinSize = mDetectMinSize;
+            }
+
+            if(mDetectMaxSize > mDrawMaxSize){
+                maxSize = mDrawMaxSize;
+            }else{
+                maxSize = mDetectMaxSize;
+                mDrawMaxSize = mDetectMaxSize;
+            }
+
+            //各種輪郭の特徴量の取得
+            //Areaが0.0の数を数えて除く
+            double maxArea = 0;
+            int count = 0;
+            for (int i = 0; i < contours.size(); i++) {
+                MatOfPoint contour = contours.get(i);
+
+                double area = Math.abs(Imgproc.contourArea(contours.get(i)));
+
+
+
+                //DetectMinとDetectMaxの間のareaのRectとContourは全てListに格納する
+                if(mDetectMinSize < area && area < mDetectMaxSize){
+
+                        Rect rect = Imgproc.boundingRect(contour);
+                        contourAreaArray[count] = area;
+                        count++;
+                        mRectList.add(rect);
+                        mDrawnRectList.add(rect);
+                        mAllDetectedContours.add(contour);
+
+                        if (maxArea < area) {
+                            maxArea = area;
+                        }
+                    if (minSize < area && area < maxSize) {
+                        Imgproc.rectangle(mContourMat, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height), new Scalar(0, 255, 255), 1);
+                        drawContours.add(contour);
+                    }
+                }
+            }
+
+            mMS_size.setMin(mDetectMinSize);
+            mMS_size.setMax(mDetectMaxSize);
+            mTextView_SizeRange.setText("Min :" + mDetectMinSize + "- Max : " + mDetectMaxSize);
+
+            //必要なArray(0じゃない)部分をメンバ変数にコピーする
+            mContourAreaArray = Arrays.copyOf(contourAreaArray, mRectList.size());
+            //System.arraycopy(contourAreaArray, 0, mContourAreaArray, mRectList.size(), );
+
+            //数えられた粒子数をSetする
+            TextView textViewParticleNum = (TextView) mView_analyze_imageData.findViewById(R.id.textView_particleNum);
+            textViewParticleNum.setText("ParticleNumber : " + mRectList.size());
+
+            Log.d("mTabMainActivity", "mRectSize = " + mRectList.size() + "　　mContourAreaArray.size = " + mContourAreaArray.length);
+            Scalar color = new Scalar(225, 0, 178);
+            Imgproc.drawContours(mContourMat, drawContours, -1, color, 1);
+            Bitmap displayImageBitmap = Bitmap.createBitmap(mContourMat.width(), mContourMat.height(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(mContourMat, displayImageBitmap);
+            mCustomImageView.setImageBitmap(displayImageBitmap);
+
+        }else if(isNew == false){
+
+            mContourMat = new Mat();
+            mMaskedImageMat.copyTo(mContourMat);
+            if(isGrayThresh){
+                Imgproc.cvtColor(mContourMat, mContourMat, Imgproc.COLOR_GRAY2RGB);
+            }
+            mDrawnRectList = new ArrayList<Rect>();
+
+            //サイズで閾値を設けて描く輪郭を決定する
+            List<MatOfPoint> drawnContours = new ArrayList<MatOfPoint>();
+            int nContours = mAllDetectedContours.size();
+            for (int i = 0; i < nContours; i++) {
+                double area = mContourAreaArray[i];
+                if (mDrawMinSize < area && area < mDrawMaxSize) {
+                    Rect rect = mRectList.get(i);
+                    mDrawnRectList.add(rect);
+                    Imgproc.rectangle(mContourMat, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height), new Scalar(0, 255, 255), 1);
+                    drawnContours.add(mAllDetectedContours.get(i));
+                }
+            }
+
+            //数えられた粒子数をSetする
+            TextView textViewParticleNum = (TextView) mView_analyze_imageData.findViewById(R.id.textView_particleNum);
+            textViewParticleNum.setText("ParticleNumber : " + drawnContours.size());
+
+            Scalar color = new Scalar(255, 0, 178);
+            Imgproc.drawContours(mContourMat, drawnContours, -1, color, 1);
+            Bitmap displayImageBitmap = Bitmap.createBitmap(mContourMat.width(), mContourMat.height(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(mContourMat, displayImageBitmap);
+            mCustomImageView.setImageBitmap(displayImageBitmap);
+        }
+
+
+
+    }
+
+    private void changeDisplayImage(){
+
+        RealmList<MeasuredDateAndDataObject> dateAndDataList = mUserObject.getMeasuredDateAndDataList();
+        RealmList<CapturedImageObject> captureImageList = dateAndDataList.get(mDatePosition).getCapturedImages();
+        CapturedImageObject capturedImage = captureImageList.get(mCheckedImageNumArray[mDisplayedImageNum]);
+        File imageFile = new File(capturedImage.getFilePath());
+        Bitmap displayImageBitmap = decodeFile(imageFile.getAbsolutePath());
+        mSrcMat = new Mat();
+        Utils.bitmapToMat(displayImageBitmap, mSrcMat);
+        //mImageView.setImageBitmap(mAnalyzedImageBitmap);
+        if(mAnalyzeState == NONE) {
+            mCustomImageView.setImageBitmap(displayImageBitmap);
+            return;
+        }
+
+        //進むor戻るを押した時の解析の進度(mAnalyzeState)に応じて、
+        //止める(returnする)場所を変える
+
+        setGlayScaleImage();
+        if(mAnalyzeState == GRAY_SCALE) {
+            return;
+        }
+
+        setThresholdImage();
+        if(mAnalyzeState == THRESHOLD){
+            return;
+        }
+
+        setFindContourImage(true);
+        if(mAnalyzeState == FIND_CONTOUR){
+            return;
+        }
+    }
+
+    //4ページ目  解析結果の表示
+    public void createDataAnalysisForthPage(double[] meanIntensityArray){
+
+        //4ページ目　Viewの設定
+        mView_analyze_result = getLayoutInflater().inflate(R.layout.view_analyze_result, null);
+        //4ページ目  グラフ作製テスト
+        GraphView graph = (GraphView)mView_analyze_result.findViewById(R.id.graph);
+        LineGraphSeries<DataPoint> series = new LineGraphSeries<>(new DataPoint[]{
+                new DataPoint(0, 1),
+                new DataPoint(1, 5),
+                new DataPoint(2, 3),
+                new DataPoint(3, 9),
+                new DataPoint(4, 11),
+                new DataPoint(5, 7),
+                new DataPoint(6, 1),
+                new DataPoint(7, 3),
+                new DataPoint(8, 16),
+        });
+        graph.addSeries(series);
+
+        MakeHistogramDistribution.makeFreqDistribution(10, meanIntensityArray);
+        double[] freqDist = MakeHistogramDistribution.getFreqDistribution();
+        double[] xAxis = MakeHistogramDistribution.getXAxis();
+
+
+        GraphView bar_graph = (GraphView)mView_analyze_result.findViewById(R.id.graph_bar);
+        BarGraphSeries<DataPoint> series2 = new BarGraphSeries<>(new DataPoint[]{
+
+        });
+
+        for(int i = 0; i < xAxis.length; i++){
+            series2.appendData(new DataPoint(xAxis[i], freqDist[i]), true, xAxis.length);
+        }
+
+        bar_graph.addSeries(series2);
+        series2.setOnDataPointTapListener(new OnDataPointTapListener() {
+            @Override
+            public void onTap(Series series, DataPointInterface dataPoint) {
+                Toast.makeText(TabMainActivity.this, "Series:OnDataPointClicked" + dataPoint, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+
+
+        mFL_DataAnalysis.removeView(mView_analyze_imageData);
+        mFL_DataAnalysis.addView(mView_analyze_result);
+
+    }
+
+    private void initMats(){
+        if(mSrcMat != null){
+            mSrcMat.release();
+            mSrcMat = null;
+        }
+
+        if(mGrayImageMat != null) {
+            mGrayImageMat.release();
+            mGrayImageMat = null;
+        }
+
+        if(mThreshImageMat != null){
+            mThreshImageMat.release();
+            mThreshImageMat = null;
+        }
+
+        if(mMaskedImageMat != null){
+            mMaskedImageMat.release();
+            mMaskedImageMat = null;
+        }
+
+        if(mContourMat != null) {
+            mContourMat.release();
+            mContourMat = null;
+        }
     }
 
     @Override
@@ -824,6 +1038,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
+
     }
 
     @Override
@@ -835,6 +1050,75 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            View currentView = mFL_DataAnalysis.getChildAt(0);
+            if(currentView == mView_analyze_imageData){
+                View view_detectparticle_config = getLayoutInflater().inflate(R.layout.view_detectparticle_config, null);
+                mFL_DataAnalysis.addView(view_detectparticle_config);
+
+                RelativeLayout rl = (RelativeLayout)view_detectparticle_config.findViewById(R.id.rl_detectparticle_config);
+                rl.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        mFL_DataAnalysis.removeViewAt(1);
+                    }
+                });
+                //検出する最小サイズと最大サイズを決定する
+                final TextView textViewDetectMinSize = (TextView)view_detectparticle_config.findViewById(R.id.textView_detectminsize);
+                final SeekBar sbDetectMinSize = (SeekBar)view_detectparticle_config.findViewById(R.id.seekBar_detectminsize);
+                sbDetectMinSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                    @Override
+                    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                        if(mDetectMaxSize > progress) {
+                            mDetectMinSize = progress;
+                            textViewDetectMinSize.setText("DetectMinSize : " + progress);
+                        }else{
+
+                            mDetectMinSize = mDetectMaxSize-1;
+                            sbDetectMinSize.setProgress(mDetectMinSize);
+                            textViewDetectMinSize.setText("DetectMinSize : " + (mDetectMinSize));
+                        }
+
+                    }
+
+                    @Override
+                    public void onStartTrackingTouch(SeekBar seekBar) {
+
+                    }
+
+                    @Override
+                    public void onStopTrackingTouch(SeekBar seekBar) {
+
+                    }
+                });
+                final TextView textViewDetectMaxSize = (TextView)view_detectparticle_config.findViewById(R.id.textView_detectmaxsize);
+                SeekBar sbDetectMaxSize = (SeekBar)view_detectparticle_config.findViewById(R.id.seekBar_detectmaxsize);
+                sbDetectMaxSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                    @Override
+                    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+
+                        if(mDetectMinSize < progress) {
+                            mDetectMaxSize = progress;
+                            textViewDetectMaxSize.setText("DetectMaxSize : " + progress);
+                        }else{
+                            mDetectMaxSize = mDetectMinSize+1;
+                            sbDetectMinSize.setProgress(mDetectMaxSize);
+                            textViewDetectMaxSize.setText("DetectMaxSize : " + (mDetectMaxSize));
+                        }
+                    }
+
+                    @Override
+                    public void onStartTrackingTouch(SeekBar seekBar) {
+
+                    }
+
+                    @Override
+                    public void onStopTrackingTouch(SeekBar seekBar) {
+
+                    }
+                });
+
+
+            }
             return true;
         }
 
@@ -847,38 +1131,72 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
     }
 
     @Override
+    //ViewPager.OnPageChangeListener
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+
+        int viewNum = mFL_DataAnalysis.getChildCount();
         //キーボードが出てたら閉じる
+        Log.d("mTabMainActivity", "onPageScrolled = " + position);
         InputMethodManager im = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
         im.hideSoftInputFromWindow(mView_camera_config.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
     }
 
     @Override
+    //ViewPager.OnPageChangeListener
     public void onPageSelected(int position) {
+        //Log.d("mTabMainActivity", "onPageSelected position = " + position);
 
     }
 
     @Override
+    //ViewPager.OnPageChangeListener
     public void onPageScrollStateChanged(int state) {
-
+        //Log.d("mTabMainActivity", "onPageScrollStateChange stat = " + state);
     }
 
     @Override
+    //ViewPager.OnPageChangeListener
     public void onFragmentInteraction(Uri uri) {
-
     }
+
+//    @Override
+//    public void onInterceptTouchEvent(MotionEvent event){
+//
+//    }
 
     @Override
     public void onBackPressed() {
 
-        int viewNum = mFL_DataAnalysis.getChildCount();
+        //int viewNum = mFL_DataAnalysis.getChildCount();
 
-        if(viewNum > 1){
-            mFL_DataAnalysis.removeViewAt(viewNum-1);
+        View currentView = mFL_DataAnalysis.getChildAt(0);
+
+        if(currentView == mView_select_imageData){
+            mFL_DataAnalysis.removeView(currentView);
+            mFL_DataAnalysis.addView(mView_select_measuredDate);
+        }else if(currentView == mView_analyze_imageData){
+
+            isOpen = false;
+
+            //Matを全部初期化(null)
+            initMats();
+
+            mFL_DataAnalysis.removeView(currentView);
+            mFL_DataAnalysis.addView(mView_select_imageData);
+        }else if(currentView == mView_analyze_result) {
+            mFL_DataAnalysis.removeView(currentView);
+            mFL_DataAnalysis.addView(mView_analyze_imageData);
         }else {
             super.onBackPressed();
         }
     }
+
+    @Override
+    public boolean onTouch(View v, MotionEvent event) {
+
+        return false;
+    }
+
 
     private int calculateSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight) {
 

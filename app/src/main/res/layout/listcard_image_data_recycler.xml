@@ -17,6 +17,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text = "   TestView"
+            android:textColor="@color/colorAccent"
             android:background="@color/colorPrimaryDark"/>
         <RelativeLayout
             android:layout_width="wrap_content"
@@ -26,6 +27,8 @@
                 android:layout_marginBottom ="4dp"
                 android:layout_width = "match_parent"
                 android:layout_height = "wrap_content"
+                android:adjustViewBounds="true"
+                android:scaleType="centerCrop"
                 android:id = "@+id/imageView_measuredata"/>
         </RelativeLayout>
 
@@ -40,14 +43,19 @@
                 android:layout_height="wrap_content"
                 android:checked = "false"
                 android:text = "Check"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginBottom="5dp"
                 android:theme ="@style/CustomCheckBox"
                 android:id = "@+id/checkbox_analyze"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginRight="10dp"
                 android:layout_alignParentRight="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginBottom="5dp"
+                android:layout_marginRight="10dp"
                 android:text = "num"
                 android:id = "@+id/textView_imagenumber"/>
         </RelativeLayout>

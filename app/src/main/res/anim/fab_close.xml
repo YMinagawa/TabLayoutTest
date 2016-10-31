@@ -2,6 +2,7 @@
 <set xmlns:android="http://schemas.android.com/apk/res/android"
     android:fillAfter="true">
 
+    <!--スケールは0.0〜0.8まで拡大 実際の80%の大きさ-->
     <scale
         android:duration="300"
         android:fromXScale="0.8"

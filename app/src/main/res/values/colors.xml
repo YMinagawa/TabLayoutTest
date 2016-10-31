@@ -5,5 +5,5 @@
     <color name="colorAccent">#FF4081</color>
     <color name="fab_analyze_color">#4CAF50</color>
     <color name="fab_delete_color">#2196F3</color>
-
+    <color name="ripple_color">#FF4081</color>
 </resources>

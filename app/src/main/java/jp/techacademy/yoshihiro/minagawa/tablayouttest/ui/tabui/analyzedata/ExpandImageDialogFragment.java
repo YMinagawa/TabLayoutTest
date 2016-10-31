@@ -10,12 +10,12 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
 import java.io.File;
 
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomImageView;
 
 import static android.graphics.BitmapFactory.decodeFile;
 
@@ -48,7 +48,7 @@ public class ExpandImageDialogFragment extends DialogFragment {
         File imageFile = new File(pathName);
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = false;
-        options.inSampleSize = 3;
+        options.inSampleSize = 1;
         decodeFile(imageFile.getAbsolutePath(), options);
         Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
 
@@ -57,14 +57,8 @@ public class ExpandImageDialogFragment extends DialogFragment {
         //final int height = rl.getMeasuredHeight();
         final int width = rl.getMeasuredWidth();
 
-        //final int height = options.outHeight;
-        //final int width = options.outWidth;
-
-        ImageView expandImageView = (ImageView)dialog.findViewById(R.id.imageView_expand);
-        expandImageView.setMaxHeight(width*options.outHeight/options.outWidth);
-
-        expandImageView.setImageBitmap(imageBitmap);
-
+        CustomImageView expandCustomImageView = (CustomImageView)dialog.findViewById(R.id.customImageView_expand);
+        expandCustomImageView.setImageBitmap(imageBitmap);
         //OKボタンのリスナー
         //dialog.findViewById(R.id.btn_df_positive).setOnClickListener(new View.OnClickListener() {
         //    @Override
@@ -72,7 +66,6 @@ public class ExpandImageDialogFragment extends DialogFragment {
 
         //    }
         //});
-
         //Closeボタンのリスナー
         dialog.findViewById(R.id.btn_close).setOnClickListener(new View.OnClickListener(){
             @Override

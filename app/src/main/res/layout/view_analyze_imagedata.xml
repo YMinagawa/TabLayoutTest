@@ -5,18 +5,50 @@
               android:background="#FFFFFFFF"
               android:layout_width="match_parent"
               android:layout_height="match_parent"
-                android:id = "@+id/ll_analyze_imagedata">
+              android:id = "@+id/ll_analyze_imagedata">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="30dp"
-        android:text = "test analysis"/>
-
-    <ImageView
-        android:layout_width="match_parent"
+    <jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomImageView
+        android:layout_marginTop="3dp"
+        android:layout_width="wrap_content"
         android:layout_height="180dp"
-        android:id = "@+id/imageView_analyzeimage"
-        />
+        android:id = "@+id/customImageView_analyzeimage"/>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="31dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:layout_width="35dp"
+            android:layout_height="31dp"
+            android:text = "◁"
+            android:textSize="10dp"
+            android:id="@+id/btn_previouspage"
+            android:layout_centerInParent="true"
+            android:layout_alignParentLeft="true"/>
+
+        <TextView
+            android:layout_width="35dp"
+            android:layout_height="31dp"
+            android:layout_marginTop="5dp"
+            android:text = "1/1"
+            android:textSize="18dp"
+            android:id = "@+id/textView_imagepages"
+            android:layout_centerInParent="true"/>
+
+        <Button
+            android:layout_width="35dp"
+            android:layout_height="31dp"
+            android:text = "▷"
+            android:textSize="10dp"
+            android:id = "@+id/btn_nextpage"
+            android:layout_centerInParent="true"
+            android:layout_alignParentRight="true"/>
+
+
+    </RelativeLayout>
+
+
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -24,75 +56,96 @@
 
         <Button
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/btn_frame_white"
+            android:layout_marginRight="2dp"
+            android:layout_marginLeft="2dp"
             android:id = "@+id/btn_gray"
-            android:text = "gray"/>
+            android:text = "gray"
+            android:elevation="2dp"/>
 
         <Button
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id = "@+id/btn_invert"
-            android:text = "invert"/>
-
-
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/btn_frame_white"
+            android:layout_marginRight="2dp"
+            android:layout_marginLeft="2dp"
             android:id = "@+id/btn_thresh"
             android:text = "Thresh"/>
 
-    </LinearLayout>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="35dp">
-
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id = "@+id/btn_mask"
-            android:text = "MASK"/>
-
-
-
-        />
+            android:layout_width="130dp"
+            android:layout_height="32dp"
+            android:background="@drawable/btn_frame_white"
+            android:layout_marginRight="2dp"
+            android:layout_marginLeft="2dp"
+            android:id = "@+id/btn_graythresh"
+            android:text = "GRAY THRESH"/>
 
     </LinearLayout>
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="35dp">
+        android:layout_height="35dp"
+        android:orientation="horizontal">
 
         <Button
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/btn_frame_white"
+            android:layout_marginRight="2dp"
+            android:layout_marginLeft="2dp"
             android:id = "@+id/btn_reset"
             android:text = "reset"/>
 
         <Button
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/btn_frame_white"
+            android:layout_marginRight="2dp"
+            android:layout_marginLeft="2dp"
             android:text = "erode"
+            android:enabled="true"
             android:id = "@+id/btn_erode"/>
 
+        <!--
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:id = "@+id/btn_connectComponents"
             android:text = "connectComponents"
             />
+        -->
+        <Button
+            android:layout_width="130dp"
+            android:layout_height="32dp"
+            android:background="@drawable/btn_frame_white"
+            android:layout_marginRight="2dp"
+            android:layout_marginLeft="2dp"
+            android:id = "@+id/btn_findcontour"
+            android:text = "DetectParticle"/>
 
     </LinearLayout>
 
-
-
-    <SeekBar
-        android:id = "@+id/seekBar_thresh"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="25dp"
-        android:max = "255"
-        android:progress = "150"
-        />
+        android:layout_height="35dp"
+        android:orientation="horizontal">
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="Threshold"
+            android:textColor="#000000"/>
+
+        <SeekBar
+            android:id = "@+id/seekBar_thresh"
+            android:layout_width="300dp"
+            android:layout_height="30dp"
+            android:max = "255"
+            android:progress = "150"
+            />
+    </LinearLayout>
+    <!--
     <SeekBar
         android:id = "@+id/seekBar_size"
         android:layout_width="match_parent"
@@ -100,11 +153,67 @@
         android:max = "255"
         android:progress = "100"
         />
+    -->
 
-    <org.florescu.android.rangeseekbar.RangeSeekBar
-        android:id = "@+id/rangeSeekBar_size"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="70dp"
-        />
+        android:layout_height="50dp"
+        android:orientation="vertical">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="15dp"
+            android:orientation="horizontal"
+            android:layout_marginBottom="2dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:text="Particle Size"
+                android:textColor="#000000"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:text="Min-Max"
+                android:layout_marginLeft="30dp"
+                android:textColor="#000000"
+                android:id = "@+id/textView_sizerange"/>
+        </LinearLayout>
+
+        <io.apptik.widget.MultiSlider
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id = "@+id/multislider_size"
+            app:thumbNumber="2"
+            app:range1="@drawable/multislider_scrubber_track_holo_light"
+            app:drawThumbsApart="false"
+            />
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id = "@+id/textView_particleNum"
+        android:text="ParticleNumbar : "/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text = "calcMean"
+        android:id = "@+id/btn_calcmean"/>
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/fab_camera"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight = "16dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="13dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:src = "@android:drawable/ic_dialog_email"
+        android:elevation="6dp"
+        app:pressedTranslationZ="12dp"/>
 </LinearLayout>
