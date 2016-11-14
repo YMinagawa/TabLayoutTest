@@ -1,10 +1,12 @@
 package jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui;
 
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.TabLayout;
@@ -36,7 +38,6 @@ import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.BarGraphSeries;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.DataPointInterface;
-import com.jjoe64.graphview.series.LineGraphSeries;
 import com.jjoe64.graphview.series.OnDataPointTapListener;
 import com.jjoe64.graphview.series.Series;
 
@@ -54,6 +55,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -62,6 +64,7 @@ import java.util.concurrent.Future;
 
 import io.apptik.widget.MultiSlider;
 import io.realm.Realm;
+import io.realm.RealmChangeListener;
 import io.realm.RealmList;
 import io.realm.RealmResults;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
@@ -74,6 +77,7 @@ import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomImageView;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomItemDecoration;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomRecyclerItemClickListener;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomViewPager;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.analyzedata.DeleteMeasuredDateDialogFragment;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.analyzedata.ImageDataListRecyclerAdapter;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.analyzedata.MeasuredDateListRecycleAdapter;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.camera.CameraActivity;
@@ -87,71 +91,81 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
 
     //User
     private UserObject mUserObject;
-
+    //private RealmList<CapturedImageObject> mCaptureImageList;
     //idをインテントで入手するためのメンバ変数
     int mId;
 
+    //Toast
+    private static Toast mToast;
+
     //Framelayout (各Viewを乗っける)
-    FrameLayout mFL_Camera;
-    FrameLayout mFL_DataAnalysis;
-    FrameLayout mFL_History;
+    private FrameLayout mFL_Camera;
+    private FrameLayout mFL_DataAnalysis;
+    private FrameLayout mFL_History;
 
     //ViewPager
     ViewPager mViewPager;
-    CustomViewPager mCustomViewPager;
+    private CustomViewPager mCustomViewPager;
 
     //各View
     //Camera
-    View mView_camera_config;
+    private View mView_camera_config;
 
     //DataAnalysis
     //1ページ 日付選択ページ
-    View mView_select_measuredDate;
-    RecyclerView mSelectMeasureDateRecyclerView;
-    RecyclerView.LayoutManager mSelectMeasureDateLayoutManager;
-    RecyclerView.Adapter mSelectMeasureDateAdapter;
+    private View mView_select_measuredDate;
+    private RecyclerView mSelectMeasureDateRecyclerView;
+    private RecyclerView.LayoutManager mSelectMeasureDateLayoutManager;
+    private RecyclerView.Adapter mSelectMeasureDateAdapter;
     //2ページ 画像選択ページ
-    View mView_select_imageData;
-    RecyclerView mSelectImageRecyclerView;
-    RecyclerView.LayoutManager mSelectImageLayoutManager;
-    RecyclerView.Adapter mSelectImageAdapter;
-    FloatingActionButton mFab_plus, mFab_analysis, mFab_delete;
-    Animation mFabOpen, mFabClose, mFabRClockwise,  mFabRanticlockwise;
-    boolean isOpen =false;
-    boolean isGrayThresh = false;
+    private ProgressDialog mProgressDialog;
+    private View mView_select_imageData;
+    private RecyclerView mSelectImageRecyclerView;
+    private RecyclerView.LayoutManager mSelectImageLayoutManager;
+    private RecyclerView.Adapter mSelectImageAdapter;
+    private FloatingActionButton mFab_plus, mFab_analysis, mFab_delete;
+    private Animation mFabOpen, mFabClose, mFabRClockwise,  mFabRanticlockwise;
+    private boolean isOpen =false;
+    private boolean isGrayThresh = false;
     //3ページ 画像処理ページ
-    int mAnalyzeState;
-    int NONE = 0;
-    int GRAY_SCALE = 1;
-    int THRESHOLD = 2;
-    int FIND_CONTOUR = 3;
 
-    int mDatePosition;
-    int[] mCheckedImageNumArray;
-    int mDisplayedImageNum;
-    int mDetectMinSize = 10;
-    int mDetectMaxSize = 1000;
-    int mDrawMinSize = 11;
-    int mDrawMaxSize = 999;
-    TextView mTextView_SizeRange;
-    Mat mSrcMat;
-    Mat mGrayImageMat;
-    Mat mThreshImageMat;
-    Mat mMaskedImageMat;
-    Mat mContourMat;
-    View mView_analyze_imageData;
-    CustomImageView mCustomImageView;
-    SeekBar mSb_threshold;
+    private int mAnalyzeState;
+    private int NONE = 0;
+    private int GRAY_SCALE = 1;
+    private int THRESHOLD = 2;
+    private int FIND_CONTOUR = 3;
+
+    private int mDatePosition;
+    private int[] mCheckedImageNumArray;
+    private int mDisplayedImageNum;
+    private int mDetectMinSize = 10;
+    private int mDetectMaxSize = 1000;
+    private int mDrawMinSize = 11;
+    private int mDrawMaxSize = 999;
+    private TextView mTextView_SizeRange;
+    private Mat mSrcMat;
+    private Mat mGrayImageMat;
+    private Mat mThreshImageMat;
+    private Mat mMaskedImageMat;
+    private Mat mContourMat;
+    private View mView_analyze_imageData;
+    private CustomImageView mCustomImageView;
+    private SeekBar mSb_threshold;
     //SeekBar mSb_size;
-    MultiSlider mMS_size;
+    private MultiSlider mMS_size;
 
-    double[] mContourAreaArray;
-    List<MatOfPoint> mAllDetectedContours;
-    ArrayList<Rect> mRectList;
-    ArrayList<Rect> mDrawnRectList;
+    private double[] mContourAreaArray;
+    private List<MatOfPoint> mAllDetectedContours;
+    private ArrayList<Rect> mRectList;
+    private ArrayList<Rect> mDrawnRectList;
 
     //4ページ 画像解析結果
     View mView_analyze_result;
+
+    //GraphView mMeanHistGraph;
+    //BarGraphSeries<DataPoint> mBarGraphSeries;
+    double[] mMeanIntArray;
+
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -327,27 +341,93 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         mSelectMeasureDateAdapter = new MeasuredDateListRecycleAdapter(mUserObject.getMeasuredDateAndDataList());
         mSelectMeasureDateRecyclerView.setAdapter(mSelectMeasureDateAdapter);
 
+
+        //Realmが更新(日付が削除)された時にRecyclerViewを更新する
+        mUserObject.addChangeListener(new RealmChangeListener(){
+            @Override
+            public void onChange() {
+                Log.d("mTabMainAct", "Recycler View Updated");
+                mSelectMeasureDateAdapter = new MeasuredDateListRecycleAdapter(mUserObject.getMeasuredDateAndDataList());
+                mSelectMeasureDateRecyclerView.setAdapter(mSelectMeasureDateAdapter);
+            }
+        });
+
         //1ページ目 : 独自に作成したRecycleItemOnClickListenerを実装する
         //          日付がクリックされたら、その日付に対応するViewを作成する。
         mSelectMeasureDateRecyclerView.addOnItemTouchListener(
                 new CustomRecyclerItemClickListener(this, mSelectMeasureDateRecyclerView, new CustomRecyclerItemClickListener.OnItemClickListener(){
                     @Override
-                    public void onItemClick(View view, int position) {
+                    public void onItemClick(View view, final int position) {
                         Log.d("mTest", "measureddate normal click");
                         if(mFL_DataAnalysis.getChildCount() < 2) {
-                            createDataAnalysisSecondPage(position);
+
+                            RealmList<MeasuredDateAndDataObject> dateAndDataList = mUserObject.getMeasuredDateAndDataList();
+                            final RealmList<CapturedImageObject> captureImageList = dateAndDataList.get(position).getCapturedImages();
+
+                            final ArrayList<File> imageFiles = new ArrayList<File>();
+                            final ArrayList<Bitmap> bitmapList = new ArrayList<Bitmap>();
+                            final ProgressDialog progressDialog = new ProgressDialog(TabMainActivity.this);
+
+                            for(int i = 0; i < captureImageList.size(); i++){
+                                imageFiles.add(new File(captureImageList.get(i).getFilePath()));
+                            }
+
+                            //Bitmapのイメージ作成に時間がかかるので、ProgressDialogを入れることにした。
+                            //RealmObjectは他スレッドからアクセスできないので、スレッドが必要となるProgressDialogの実装が少し厄介だった。
+                            //解決策として、RealmからFileのリストを作成することに(上記)・・・
+                            AsyncTask asyncTask = new AsyncTask() {
+
+                                @Override
+                                protected void onPreExecute() {
+                                    super.onPreExecute();
+                                    progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                                    progressDialog.setMessage("Now loading images....");
+                                    progressDialog.setCancelable(false);
+                                    progressDialog.show();
+
+                                }
+
+                                @Override
+                                protected Object doInBackground(Object[] params) {
+                                    for(int i = 0; i < imageFiles.size(); i++){
+                                        File imageFile = imageFiles.get(i);
+                                        BitmapFactory.Options options = new BitmapFactory.Options();
+                                        options.inJustDecodeBounds = false;
+                                        options.inSampleSize = 4;
+                                        Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
+                                        bitmapList.add(imageBitmap);
+
+                                    }
+                                    return null;
+                                }
+
+                                @Override
+                                protected void onPostExecute(Object o) {
+                                    super.onPostExecute(o);
+                                    progressDialog.dismiss();
+                                    createDataAnalysisSecondPage(position, bitmapList);
+                                }
+                            }.execute();
+
                         }
                     }
 
                     @Override
                     public void onItemLongClick(View view, int position) {
+                        Date measuredDate = mUserObject.getMeasuredDateAndDataList().get(position).getMeasuredDate();
+                        DeleteMeasuredDateDialogFragment deleteMeasuredDateDialogFragment = DeleteMeasuredDateDialogFragment.newInstance(mUserObject.getName(), measuredDate);
+                        deleteMeasuredDateDialogFragment.show(TabMainActivity.this.getFragmentManager(), "DeleteMeasuredDateDialogFragment");
+                        Log.d("mTestUserSelect", "long click");
 
                     }
                 })
         );
     }
 
-    public void createDataAnalysisSecondPage(final int date_position){
+    public void createDataAnalysisSecondPage(final int date_position, ArrayList<Bitmap> bitmapList){
+
+        //1ページ目でセットしたリスナーを削除する
+        mUserObject.removeChangeListeners();
 
         //2ページ目の設定 : 解析する画像を選ぶ(実装は1ページ目のアイテムリスナー)
         mView_select_imageData = getLayoutInflater().inflate(R.layout.view_select_imagedata, null);
@@ -357,7 +437,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         mSelectImageLayoutManager = new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL);
         mSelectImageRecyclerView.setHasFixedSize(true);
         mSelectImageRecyclerView.setLayoutManager(mSelectImageLayoutManager);
-
         //2ページ目：RecyclerViewのアイテム毎の線が入るようにする
         //mSelectImageRecyclerView.addItemDecoration(new CustomItemDecoration(this));
 
@@ -366,7 +445,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         RealmList<MeasuredDateAndDataObject> dateAndDataList = mUserObject.getMeasuredDateAndDataList();
         RealmList<CapturedImageObject> captureImageList = dateAndDataList.get(date_position).getCapturedImages();
 
-        mSelectImageAdapter = new ImageDataListRecyclerAdapter(captureImageList, this);
+        mSelectImageAdapter = new ImageDataListRecyclerAdapter(captureImageList, bitmapList, TabMainActivity.this);
         mSelectImageRecyclerView.setAdapter(mSelectImageAdapter);
 
         //2ページ目：RecycleViewの下にDate, ISO, ExposureTimeを表示
@@ -380,7 +459,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         textViewExpTime.setText("Exposure Time : " + dateAndDataList.get(date_position).getExposureTime() + " ms");
 
         //2ページ目：解析に移行するためのFloating Action Button
-
         mFab_plus = (FloatingActionButton)mView_select_imageData.findViewById(R.id.fab_plus);
         mFab_analysis = (FloatingActionButton)mView_select_imageData.findViewById(R.id.fab_analysis);
         mFab_analysis.setOnClickListener(new View.OnClickListener() {
@@ -421,6 +499,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         mFL_DataAnalysis.removeView(mView_select_measuredDate);
         mFL_DataAnalysis.addView(mView_select_imageData);
     }
+
 
     //3ページ目  画像を解析(Gray, Threshold, Erode, FindContour等)
     public void createDataAnalysisThirdPage(int date_position){
@@ -474,7 +553,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             mFL_DataAnalysis.removeView(mView_select_imageData);
             mFL_DataAnalysis.addView(mView_analyze_imageData);
         }else{
-            Toast.makeText(this, "Please check one image at least !", Toast.LENGTH_SHORT).show();
+            toast("Please check one image at least !");
         }
 
         //次のイメージに進めるButton設定
@@ -528,6 +607,19 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             public void onClick(View v) {
                 mAnalyzeState = GRAY_SCALE;
                 setGlayScaleImage();
+            }
+        });
+
+        //SubtractBackGroundの設定
+        Button btnSubBack = (Button)mView_analyze_imageData.findViewById(R.id.btn_subBack);
+        btnSubBack.setEnabled(false);
+        btnSubBack.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(mGrayImageMat == null && mThreshImageMat == null){
+                    //Toast.makeText(TabMainActivity.this, "Please change grayscale first", Toast.LENGTH_SHORT).show();
+                    toast("Please change grayscale !!");
+                }
             }
         });
 
@@ -595,7 +687,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             public void onClick(View v) {
                 isGrayThresh = false;
                 if(mGrayImageMat == null && mThreshImageMat == null){
-                    Toast.makeText(TabMainActivity.this, "Please change grayscale first", Toast.LENGTH_SHORT).show();
+                    toast("Please change grayscale !!");
                 }else if(mGrayImageMat !=null && mThreshImageMat == null){
                     //mImageView.setImageBitmap(mGrayImageBitmap);
                     Bitmap srcImageBitmap = Bitmap.createBitmap(mSrcMat.width(), mSrcMat.height(), Bitmap.Config.ARGB_8888);
@@ -621,7 +713,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             public void onClick(View v) {
                 isGrayThresh = true;
                 if(mGrayImageMat == null && mThreshImageMat == null){
-                    Toast.makeText(TabMainActivity.this, "Please change grayscale first", Toast.LENGTH_SHORT).show();
+                    toast("Please change grayscale !!");
                 }else if(mGrayImageMat !=null && mThreshImageMat == null){
                     //mImageView.setImageBitmap(mGrayImageBitmap);
                     Bitmap grayImageBitmap = Bitmap.createBitmap(mGrayImageMat.width(), mGrayImageMat.height(), Bitmap.Config.ARGB_8888);
@@ -649,8 +741,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             public void onClick(View v) {
                 if(mThreshImageMat != null) {
                     mMaskedImageMat = new Mat();
-
-                    Imgproc.erode(mThreshImageMat, mThreshImageMat, new Mat());
+                    Imgproc.erode(mThreshImageMat, mThreshImageMat, new Mat(), new Point(-1,-1), 1);
 
                     if(isGrayThresh){
                         mGrayImageMat.copyTo(mMaskedImageMat, mThreshImageMat);
@@ -673,6 +764,8 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                 if(mThreshImageMat != null && mMaskedImageMat != null) {
                     mAnalyzeState = FIND_CONTOUR;
                     setFindContourImage(true);
+                }else{
+                    toast("Please make threshold image !!");
                 }
             }
         });
@@ -703,9 +796,12 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             @Override
             public void onClick(View v) {
 
-                double[] calcResultsArray = new double[mDrawnRectList.size()];
+                int sum = 0;
+                double ave = 0;
+
                 if(mAnalyzeState == FIND_CONTOUR && mDrawnRectList != null) {
-                    int threadNumber = 1;
+                    mMeanIntArray = new double[mDrawnRectList.size()];
+                    int threadNumber = 2;
                     ExecutorService executor = Executors.newFixedThreadPool(threadNumber);
                     //タスクリストを作製する
                     List<Callable<Double>> tasks = new ArrayList<Callable<Double>>();
@@ -715,7 +811,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                         tasks.add(new MeanIntensityCalcTask(mDrawnRectList.get(i)));
                     }
 
-                    MeanIntensityCalcTask.setImageMat(mContourMat);
+                    MeanIntensityCalcTask.setImageMat(mMaskedImageMat);
 
                     try{
                         //並列計算実行
@@ -731,11 +827,14 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                         //結果をresultsに入れる
                         for(int i = 0; i < mDrawnRectList.size(); i++){
                             try{
-                                calcResultsArray[i] = (futures.get(i)).get();
+                                mMeanIntArray[i] = (futures.get(i)).get();
+                                sum += mMeanIntArray[i];
                             }catch(Exception e){
                                 Log.e("mTabMainActivity", "e = " + e);
                             }
                         }
+
+                        ave = sum/mMeanIntArray.length;
 
                     }finally{
                         //終了処理
@@ -743,13 +842,13 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                             executor.shutdown();
                         }
                     }
+                    for(int i = 0; i < mDrawnRectList.size();  i++){
+                        Log.d("mTabMainActivity", "calcResults[" + i + "] = " + mMeanIntArray[i]);
+                    }
+                    createDataAnalysisForthPage(ave);
+                }else{
+                    toast("Please finish detect particles !!");
                 }
-
-                for(int i = 0; i < mRectList.size();  i++){
-                    Log.d("mTabMainActivity", "calcResults[" + i + "] = " + calcResultsArray[i]);
-                }
-                createDataAnalysisForthPage(calcResultsArray);
-
             }
         });
     }
@@ -802,6 +901,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             mContourMat = new Mat();
             mMaskedImageMat.copyTo(mContourMat);
 
+            //カラーでRoiを表示するためRGBにする
             if (isGrayThresh) {
                 Imgproc.cvtColor(mContourMat, mContourMat, Imgproc.COLOR_GRAY2RGB);
             }
@@ -813,6 +913,9 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             mAllDetectedContours = new ArrayList<MatOfPoint>();
             List<MatOfPoint> drawContours = new ArrayList<MatOfPoint>();
 
+            //検出MinSizeよりもSeekBarで決めたDrawMinSizeが大きかった場合には
+            //minSizeはDrawMinSizeにする
+            //(検出自体は検出min,maxSizeで定義して、描く輪郭線はDrawMin,MaxSizeで定義する)
             int minSize, maxSize;
             if(mDetectMinSize < mDrawMinSize){
                 minSize = mDrawMinSize;
@@ -837,8 +940,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
 
                 double area = Math.abs(Imgproc.contourArea(contours.get(i)));
 
-
-
                 //DetectMinとDetectMaxの間のareaのRectとContourは全てListに格納する
                 if(mDetectMinSize < area && area < mDetectMaxSize){
 
@@ -846,7 +947,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                         contourAreaArray[count] = area;
                         count++;
                         mRectList.add(rect);
-                        mDrawnRectList.add(rect);
                         mAllDetectedContours.add(contour);
 
                         if (maxArea < area) {
@@ -854,6 +954,7 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                         }
                     if (minSize < area && area < maxSize) {
                         Imgproc.rectangle(mContourMat, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height), new Scalar(0, 255, 255), 1);
+                        mDrawnRectList.add(rect);
                         drawContours.add(contour);
                     }
                 }
@@ -861,15 +962,15 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
 
             mMS_size.setMin(mDetectMinSize);
             mMS_size.setMax(mDetectMaxSize);
-            mTextView_SizeRange.setText("Min :" + mDetectMinSize + "- Max : " + mDetectMaxSize);
+            mTextView_SizeRange.setText("Min :" + minSize + "- Max : " + maxSize);
 
             //必要なArray(0じゃない)部分をメンバ変数にコピーする
             mContourAreaArray = Arrays.copyOf(contourAreaArray, mRectList.size());
             //System.arraycopy(contourAreaArray, 0, mContourAreaArray, mRectList.size(), );
 
-            //数えられた粒子数をSetする
+            //描かれた輪郭線・粒子数をTextに表示する
             TextView textViewParticleNum = (TextView) mView_analyze_imageData.findViewById(R.id.textView_particleNum);
-            textViewParticleNum.setText("ParticleNumber : " + mRectList.size());
+            textViewParticleNum.setText("ParticleNumber : " + mDrawnRectList.size());
 
             Log.d("mTabMainActivity", "mRectSize = " + mRectList.size() + "　　mContourAreaArray.size = " + mContourAreaArray.length);
             Scalar color = new Scalar(225, 0, 178);
@@ -910,9 +1011,6 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
             Utils.matToBitmap(mContourMat, displayImageBitmap);
             mCustomImageView.setImageBitmap(displayImageBitmap);
         }
-
-
-
     }
 
     private void changeDisplayImage(){
@@ -950,48 +1048,78 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
     }
 
     //4ページ目  解析結果の表示
-    public void createDataAnalysisForthPage(double[] meanIntensityArray){
+    public void createDataAnalysisForthPage(double ave){
 
         //4ページ目　Viewの設定
         mView_analyze_result = getLayoutInflater().inflate(R.layout.view_analyze_result, null);
         //4ページ目  グラフ作製テスト
-        GraphView graph = (GraphView)mView_analyze_result.findViewById(R.id.graph);
-        LineGraphSeries<DataPoint> series = new LineGraphSeries<>(new DataPoint[]{
-                new DataPoint(0, 1),
-                new DataPoint(1, 5),
-                new DataPoint(2, 3),
-                new DataPoint(3, 9),
-                new DataPoint(4, 11),
-                new DataPoint(5, 7),
-                new DataPoint(6, 1),
-                new DataPoint(7, 3),
-                new DataPoint(8, 16),
-        });
-        graph.addSeries(series);
-
-        MakeHistogramDistribution.makeFreqDistribution(10, meanIntensityArray);
+        MakeHistogramDistribution.makeFreqDistribution(10, mMeanIntArray);
         double[] freqDist = MakeHistogramDistribution.getFreqDistribution();
         double[] xAxis = MakeHistogramDistribution.getXAxis();
 
+        GraphView meanHistGraph = (GraphView)mView_analyze_result.findViewById(R.id.graph_bar);
+        BarGraphSeries<DataPoint> barGraphSeries = new BarGraphSeries<>(new DataPoint[]{});
 
-        GraphView bar_graph = (GraphView)mView_analyze_result.findViewById(R.id.graph_bar);
-        BarGraphSeries<DataPoint> series2 = new BarGraphSeries<>(new DataPoint[]{
-
-        });
-
+        //BarGraphSeriesにデータポイントを入れていく
         for(int i = 0; i < xAxis.length; i++){
-            series2.appendData(new DataPoint(xAxis[i], freqDist[i]), true, xAxis.length);
+            barGraphSeries.appendData(new DataPoint(xAxis[i], freqDist[i]), true, xAxis.length);
+            Log.d("mTestTabmainActivitiy", "i = " + i + " xaxis = " + xAxis[i] + " freqDist = " + freqDist[i]);
         }
 
-        bar_graph.addSeries(series2);
-        series2.setOnDataPointTapListener(new OnDataPointTapListener() {
+        meanHistGraph.addSeries(barGraphSeries);
+        barGraphSeries.setOnDataPointTapListener(new OnDataPointTapListener() {
             @Override
             public void onTap(Series series, DataPointInterface dataPoint) {
                 Toast.makeText(TabMainActivity.this, "Series:OnDataPointClicked" + dataPoint, Toast.LENGTH_SHORT).show();
             }
         });
 
+        //TextViewにテキストをセット
+        TextView textView_binnum = (TextView)mView_analyze_result.findViewById(R.id.textView_binNum);
+        textView_binnum.setText("BinNum : " + 10 + "  BinWidth : " + MakeHistogramDistribution.getBinWidth());
 
+        //解析したParticle数をセット
+        TextView textView_particleNum = (TextView)mView_analyze_result.findViewById(R.id.textView_particleNum);
+        textView_particleNum.setText("ParticleNumber :" + mMeanIntArray.length);
+
+        double total = 0;
+        for(int i = 0; i < mMeanIntArray.length; i++){
+            total += (mMeanIntArray[i]-ave)*(mMeanIntArray[i]-ave);
+        }
+        double sd = Math.sqrt(total/mMeanIntArray.length);
+
+
+        //平均値とSD値を入力
+        TextView textView_mean = (TextView)mView_analyze_result.findViewById(R.id.textView_mean_sd);
+        String strSD = String.format("%.1f", sd);
+        textView_mean.setText("Mean ± SD : " + ave + " ± "+ strSD);
+
+
+
+        SeekBar sbBinWidth = (SeekBar) mView_analyze_result.findViewById(R.id.seekBar_binNum);
+        sbBinWidth.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if(progress != 0) {
+                    updateHistogramGraph(progress);
+                    TextView textView_binnum = (TextView) mView_analyze_result.findViewById(R.id.textView_binNum);
+                    textView_binnum.setText("BinNum : " + progress + "  BinWidth : " + MakeHistogramDistribution.getBinWidth());
+                }
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+
+        meanHistGraph.setTitle("Test Histogram");
+        meanHistGraph.getGridLabelRenderer().setVerticalAxisTitle("NumberOfEvents");
+        meanHistGraph.getGridLabelRenderer().setHorizontalAxisTitle("Intensity");
+
+        meanHistGraph.getViewport().setXAxisBoundsManual(true);
+        meanHistGraph.getViewport().setMinX(0);
+        meanHistGraph.getViewport().setMaxX(255);
 
         mFL_DataAnalysis.removeView(mView_analyze_imageData);
         mFL_DataAnalysis.addView(mView_analyze_result);
@@ -1025,12 +1153,13 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         }
     }
 
+
+
     @Override
     protected void onResume() {
         super.onResume();
         Log.d("mTabMainAct", "OpenCV library found inside package. Using it!");
         mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
-
     }
 
     @Override
@@ -1038,9 +1167,10 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
-
     }
 
+
+    //FindContourで検出する最大・最小の粒子の大きさの決定するSettingMenu
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
@@ -1077,18 +1207,13 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                             sbDetectMinSize.setProgress(mDetectMinSize);
                             textViewDetectMinSize.setText("DetectMinSize : " + (mDetectMinSize));
                         }
-
                     }
 
                     @Override
-                    public void onStartTrackingTouch(SeekBar seekBar) {
-
-                    }
+                    public void onStartTrackingTouch(SeekBar seekBar) {}
 
                     @Override
-                    public void onStopTrackingTouch(SeekBar seekBar) {
-
-                    }
+                    public void onStopTrackingTouch(SeekBar seekBar) {}
                 });
                 final TextView textViewDetectMaxSize = (TextView)view_detectparticle_config.findViewById(R.id.textView_detectmaxsize);
                 SeekBar sbDetectMaxSize = (SeekBar)view_detectparticle_config.findViewById(R.id.seekBar_detectmaxsize);
@@ -1107,14 +1232,10 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
                     }
 
                     @Override
-                    public void onStartTrackingTouch(SeekBar seekBar) {
-
-                    }
+                    public void onStartTrackingTouch(SeekBar seekBar) {}
 
                     @Override
-                    public void onStopTrackingTouch(SeekBar seekBar) {
-
-                    }
+                    public void onStopTrackingTouch(SeekBar seekBar) {}
                 });
 
 
@@ -1167,13 +1288,26 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
     @Override
     public void onBackPressed() {
 
-        //int viewNum = mFL_DataAnalysis.getChildCount();
-
         View currentView = mFL_DataAnalysis.getChildAt(0);
 
+        //2ページ目から1ページ目
         if(currentView == mView_select_imageData){
             mFL_DataAnalysis.removeView(currentView);
             mFL_DataAnalysis.addView(mView_select_measuredDate);
+
+            mSelectMeasureDateAdapter = new MeasuredDateListRecycleAdapter(mUserObject.getMeasuredDateAndDataList());
+            mSelectMeasureDateRecyclerView.setAdapter(mSelectMeasureDateAdapter);
+
+            //Realmが更新(日付が削除)された時にRecyclerViewを更新する
+            mUserObject.addChangeListener(new RealmChangeListener(){
+                @Override
+                public void onChange() {
+                    Log.d("mTabMainAct", "Recycler View Updated");
+                    mSelectMeasureDateAdapter = new MeasuredDateListRecycleAdapter(mUserObject.getMeasuredDateAndDataList());
+                    mSelectMeasureDateRecyclerView.setAdapter(mSelectMeasureDateAdapter);
+                }
+            });
+        //3ページ目から2ページ目
         }else if(currentView == mView_analyze_imageData){
 
             isOpen = false;
@@ -1197,6 +1331,40 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         return false;
     }
 
+    private void updateHistogramGraph(int binNum){
+
+        MakeHistogramDistribution.makeFreqDistribution(binNum, mMeanIntArray);
+        double[] freqDist = MakeHistogramDistribution.getFreqDistribution();
+        double[] xAxis = MakeHistogramDistribution.getXAxis();
+
+        GraphView meanHistGraph = (GraphView)mView_analyze_result.findViewById(R.id.graph_bar);
+        BarGraphSeries<DataPoint> barGraphSeries = new BarGraphSeries<>(new DataPoint[]{});
+        meanHistGraph.removeAllSeries();
+        meanHistGraph.addSeries(barGraphSeries);
+        for(int i = 0; i < xAxis.length; i++){
+            barGraphSeries.appendData(new DataPoint(xAxis[i], freqDist[i]), true, xAxis.length);
+            Log.d("mTestTabmainActivitiy", "i = " + i + " xaxis = " + xAxis[i] + " freqDist = " + freqDist[i]);
+        }
+
+        meanHistGraph.getViewport().setXAxisBoundsManual(true);
+        meanHistGraph.getViewport().setMinX(0);
+        meanHistGraph.getViewport().setMaxX(255);
+        //mMeanHistGraph.addSeries(mBarGraphSeries);
+//        mBarGraphSeries.setOnDataPointTapListener(new OnDataPointTapListener() {
+//            @Override
+//            public void onTap(Series series, DataPointInterface dataPoint) {
+//                Toast.makeText(TabMainActivity.this, "Series:OnDataPointClicked" + dataPoint, Toast.LENGTH_SHORT).show();
+//            }
+//        });
+    }
+
+    public void toast(String message){
+        if(mToast != null){
+            mToast.cancel();
+        }
+        mToast = Toast.makeText(this, message, Toast.LENGTH_SHORT);
+        mToast.show();
+    }
 
     private int calculateSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight) {
 
@@ -1214,4 +1382,5 @@ public class TabMainActivity extends AppCompatActivity implements ViewPager.OnPa
         }
         return inSampleSize;
     }
+
 }

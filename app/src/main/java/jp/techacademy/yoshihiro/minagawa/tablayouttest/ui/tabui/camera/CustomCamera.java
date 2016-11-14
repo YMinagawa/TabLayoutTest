@@ -53,8 +53,10 @@ public class CustomCamera {
     private int mISO;
     private long mExposureTime;
     private long mFrameDuration;
+    private float mFocusDistance;
 
     private boolean mIsAEState;
+    private boolean mIsAFState;
 
     public void setInterface(CameraInterface param) {
         mInterface = param;
@@ -221,6 +223,8 @@ public class CustomCamera {
                     mISO = result.get(CaptureResult.SENSOR_SENSITIVITY);
                     mExposureTime = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
                     mFrameDuration = result.get(CaptureResult.SENSOR_FRAME_DURATION);
+                    mFocusDistance = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
+                    //Log.e("mTestCustomCamera", "progress Focus Distance = " + result.get(CaptureResult.LENS_FOCUS_DISTANCE));
 
                     break;
                 }
@@ -359,16 +363,36 @@ public class CustomCamera {
         }
     }
 
-    //AEがONになったときCameraActivityから呼び出される
-    public void changeAEON(){
+    //AEとAFが切り替わったときにCameraActivityから呼び出される
+    public void changeCameraCondition(boolean isAFState, boolean isAEState){
         if (mCaptureSession != null) {
             try {
-                // プレビューがぼやけては困るのでオートフォーカスを利用する
-                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                // 露出、フラッシュは自動モードを仕様する
-                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
-                        CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+
+                mIsAFState = isAFState;
+                mIsAEState = isAEState;
+
+                //AFState
+                if(mIsAFState) {
+                    // プレビューがぼやけては困るのでオートフォーカスを利用する
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                            CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                }else{
+                    //オートフォーカスを切る前のパラメーターを渡しておく
+                    mCameraActivity.setCameraParam(mISO, mExposureTime, mFrameDuration, mFocusDistance);
+                    changeExposureParam(mISO, mExposureTime, mFrameDuration, mFocusDistance);
+                }
+
+                //AEState
+                if(mIsAEState){
+                    // 露出、フラッシュは自動モードを仕様する
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
+                            CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+                }else{
+                    //CameraActivityにAEを切る前のパラメーターを渡しておく
+                    mCameraActivity.setCameraParam(mISO, mExposureTime, mFrameDuration, mFocusDistance);
+                    changeExposureParam(mISO, mExposureTime, mFrameDuration, mFocusDistance);
+                }
+
 
                 //ホワイトバランス
                 //mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE,
@@ -388,36 +412,47 @@ public class CustomCamera {
     }
 
 
-    //AEがONになったときCameraActivityから呼び出される
-    public void changeAEOFF(){
-        if (mCaptureSession != null) {
-            mCameraActivity.setCameraParam(mISO, mExposureTime, mFrameDuration);
-            changeExposureParam(mISO, mExposureTime, mFrameDuration);
-        }
-    }
+//    //AEがONになったときCameraActivityから呼び出される
+//    public void changeAEOFF(){
+//        if (mCaptureSession != null) {
+//            mCameraActivity.setCameraParam(mISO, mExposureTime, mFrameDuration);
+//            changeExposureParam(mISO, mExposureTime, mFrameDuration, 0);
+//        }
+//    }
 
-    public void changeExposureParam(int ISO, long exposureTime, long frameDuration){
+    public void changeExposureParam(int ISO, long exposureTime, long frameDuration, float focusDistance){
         if (mCaptureSession != null) {
 
             mISO = ISO;
             mExposureTime = exposureTime;
             mFrameDuration = frameDuration;
+            mFocusDistance = focusDistance;
+
 
             try{
-                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                //AEをOFFにして各パラメーター値(ISO, ExposureTime, FrameDuration)を入れる
-                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
-                        CaptureRequest.CONTROL_AE_MODE_OFF);
-                mPreviewRequestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, mISO);
-                mPreviewRequestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, mExposureTime);
-                mPreviewRequestBuilder.set(CaptureRequest.SENSOR_FRAME_DURATION, mFrameDuration);
-                //パラメーター値(ISO, ExposureTime, FrameDuration)をマニュアルで全て変更したので、
+                if(!mIsAFState) {
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                            CaptureRequest.CONTROL_AF_MODE_OFF);
+                    mPreviewRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, mFocusDistance);
+                    Log.d("mCustomCamera", "AF parametaer was changed");
+                }
+
+                if(!mIsAEState) {
+                    //AEをOFFにして各パラメーター値(ISO, ExposureTime, FrameDuration)を入れる
+                    Log.d("mCustomCamera", "AE parametaer was changed");
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
+                            CaptureRequest.CONTROL_AE_MODE_OFF);
+                    mPreviewRequestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, mISO);
+                    mPreviewRequestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, mExposureTime);
+                    mPreviewRequestBuilder.set(CaptureRequest.SENSOR_FRAME_DURATION, mFrameDuration);
+                    //パラメーター値(ISO, ExposureTime, FrameDuration)をマニュアルで全て変更したので、
+
+                }
+
                 //リクエストをbuildする。
                 mPreviewRequest = mPreviewRequestBuilder.build();
                 mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback,
                         mInterface.getBackgroundHandler());
-
             }catch(CameraAccessException e){
                 e.printStackTrace();
             }

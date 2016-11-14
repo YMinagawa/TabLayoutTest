@@ -10,7 +10,6 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.widget.ImageView;
 
-
 /**
  * Created by ym on 2016/10/25.
  */
@@ -26,7 +25,7 @@ public class CustomImageView extends ImageView {
     private final float SCALE_MAX = 6.0f;
     private float mScaleMin;
     private final float PINCH_SENSITIVITY = 15.0f;
-    private boolean isFirstDraw = false;
+    private boolean isFirstDraw = true;
 
     //コンストラクタ1
     public CustomImageView(Context context) {
@@ -63,8 +62,8 @@ public class CustomImageView extends ImageView {
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
 
-        if(isFirstDraw == false) {
-
+        if(isFirstDraw == true) {
+            Log.d("mTestCustomImage", "FirstDraw on Layout");
             //ScaleMinをここで定義して、
             //ImageをImageViewにFitする
 
@@ -97,13 +96,17 @@ public class CustomImageView extends ImageView {
 
             //拡大・縮小(第3、第4引数は拡大、縮小の基点)
             mMatrix.postScale(mScaleMin, mScaleMin, imageViewWidth / 2, imageViewHeight / 2);
-            isFirstDraw = true;
+            this.setImageMatrix(mMatrix);
+            isFirstDraw = false;
         }
+        Log.d("mTestCustomImage", "On Layout");
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        Log.d("mTestCustomImage", "OnDraw");
+
     }
 
     //OnTouchEvent内にmScaleGestureDetector.onTouchEventを呼ぶことで

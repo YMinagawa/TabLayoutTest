@@ -37,7 +37,6 @@ public class CustomViewPager extends ViewPager{
 
         if(mFrameLayout !=null) {
 
-
             View currentView = mFrameLayout.getChildAt(0);
             if(currentView ==mView_analyze_imageData){
                 mFrameLayout.getParent().requestDisallowInterceptTouchEvent(true);

@@ -10,6 +10,7 @@ public class MakeHistogramDistribution{
 
     static double[] freqDist;
     static double[] xAxis;
+    static int binWidth;
 
     //ヒストグラムの階級化
     public static void makeFreqDistribution(int binNum, double[] srcArray){
@@ -21,7 +22,7 @@ public class MakeHistogramDistribution{
 
         Arrays.sort(tempArray);
         double max = tempArray[tempArray.length-1];
-        int binWidth = (int)(max/binNum) + 1;
+        binWidth = (int)(max/binNum) + 1;
 
         for(double value : tempArray){
             int num;
@@ -41,6 +42,10 @@ public class MakeHistogramDistribution{
 
     public static double[] getXAxis(){
         return xAxis;
+    }
+
+    public static int getBinWidth(){
+        return binWidth;
     }
 
 }

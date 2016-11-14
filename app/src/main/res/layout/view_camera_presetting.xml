@@ -4,64 +4,70 @@
     xmlns:app = "http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     tools:context="jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.tabui.TabMainActivity">
 
     <!-- TODO: Update blank fragment layout -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-    <RelativeLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true">
-
-        <LinearLayout
+        <RelativeLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id = "@+id/llayoutOfCameraFragment"
-            android:layout_marginBottom="70dp"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize = "25dp"
-                android:text = "ElapsedTime"/>
+            android:layout_centerInParent="true">
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginLeft="25dp">
-                <Spinner
+                android:id = "@+id/llayoutOfCameraFragment"
+                android:layout_marginBottom="70dp"
+                android:orientation="vertical">
+
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:id = "@+id/spinner_hour"
-                    android:entries="@array/hour_list"
-                    android:spinnerMode="dialog"/>
-                <Spinner
+                    android:textSize = "25dp"
+                    android:text = "ElapsedTime"/>
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:id = "@+id/spinner_min"
-                    android:entries="@array/min_list"
-                    android:spinnerMode="dialog"/>
+                    android:orientation="horizontal"
+                    android:layout_marginLeft="25dp">
+                    <Spinner
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:id = "@+id/spinner_hour"
+                        android:entries="@array/hour_list"
+                        android:spinnerMode="dialog"/>
+                    <Spinner
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:id = "@+id/spinner_min"
+                        android:entries="@array/min_list"
+                        android:spinnerMode="dialog"/>
+                </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
 
-        <android.support.design.widget.TextInputLayout
-            android:id = "@+id/text_input_layout"
-            android:layout_width = "match_parent"
-            android:layout_height = "wrap_content"
-            android:layout_below="@id/llayoutOfCameraFragment"
-            android:layout_marginBottom="60dp">
+            <android.support.design.widget.TextInputLayout
+                android:id = "@+id/text_input_layout"
+                android:layout_width = "match_parent"
+                android:layout_height = "wrap_content"
+                android:layout_below="@id/llayoutOfCameraFragment"
+                android:layout_marginBottom="60dp">
 
-            <EditText
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint = "Memo (Optional) : Please enter your symptoms or temperature, etc"
-                android:inputType="text"
-                android:layout_alignParentStart="true"/>
-        </android.support.design.widget.TextInputLayout>
+                <EditText
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint = "Memo (Optional) : Please enter your symptoms or temperature, etc"
+                    android:inputType="text"
+                    android:layout_alignParentStart="true"/>
+            </android.support.design.widget.TextInputLayout>
 
-    </RelativeLayout>
+        </RelativeLayout>
+    </ScrollView>
 
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/fab_camera"

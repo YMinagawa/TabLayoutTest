@@ -70,7 +70,7 @@ public class ExpandImageDialogFragment extends DialogFragment {
         dialog.findViewById(R.id.btn_close).setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
-                ExpandImageDialogFragment.this.dismiss();
+                ExpandImageDialogFragment.this.getDialog().dismiss();
             }
         });
 
@@ -94,4 +94,6 @@ public class ExpandImageDialogFragment extends DialogFragment {
 
         return inSampleSize;
     }
+
+
 }

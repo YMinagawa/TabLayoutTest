@@ -61,4 +61,16 @@
         android:layout_toStartOf="@+id/ibtn_ae"
         android:layout_marginEnd="12dp"/>
 
+    <jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomSeekbar
+        android:layout_height="400dp"
+        android:layout_width = "30dp"
+        android:background="@null"
+        android:layout_centerInParent="true"
+        android:layout_alignParentLeft="true"
+        android:visibility="invisible"
+        android:max="10000"
+        android:id = "@+id/seekbar_focusdist"
+        />
+
+
 </RelativeLayout>

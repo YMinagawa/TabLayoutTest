@@ -7,11 +7,36 @@
     <com.jjoe64.graphview.GraphView
         android:layout_width="match_parent"
         android:layout_height="200dp"
-        android:id = "@+id/graph"/>
-
-    <com.jjoe64.graphview.GraphView
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
         android:id = "@+id/graph_bar"/>
+
+    <TextView
+        android:id = "@+id/textView_binNum"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:textColor="#000000"
+        android:text = "BinNumber : 10   BinWidth : "/>
+    <SeekBar
+        android:id = "@+id/seekBar_binNum"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:max = "255"
+        android:progress = "10"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#000000"
+        android:text = "ParticleNumber : "
+        android:textSize="20dp"
+        android:id = "@+id/textView_particleNum"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#000000"
+        android:text="Mean ± SD : "
+        android:textSize="20dp"
+        android:id = "@+id/textView_mean_sd"/>
 
 </LinearLayout>

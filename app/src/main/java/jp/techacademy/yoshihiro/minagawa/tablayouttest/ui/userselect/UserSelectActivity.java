@@ -125,7 +125,9 @@ public class UserSelectActivity extends AppCompatActivity {
 
                     @Override
                     public void onItemLongClick(View view, int position) {
-                        //LongClickで削除するかどうかのインジケーターを出す。
+                        //LongClickで削除するかどうかのインジケーターを出す予定
+                        //DeleteMeasuredDateDialogFragment deleteMeasuredDateDialogFragment = DeleteMeasuredDateDialogFragment.newInstance();
+                        //deleteMeasuredDateDialogFragment.show(UserSelectActivity.this.getFragmentManager(), "DeleteMeasuredDateDialogFragment");
                         Log.d("mTestUserSelect", "long click");
                     }
                 })

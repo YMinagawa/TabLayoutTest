@@ -28,6 +28,8 @@
             android:layout_height="50dp"
             android:max = "300"
             android:progress = "150"/>
+
+
         <Button
             android:id = "@+id/btn_test"
             android:layout_width="100dp"

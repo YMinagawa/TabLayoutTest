@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,15 +13,12 @@ import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import java.io.File;
 import java.util.ArrayList;
 
 import io.realm.Realm;
 import io.realm.RealmList;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.CapturedImageObject;
-
-import static android.graphics.BitmapFactory.decodeFile;
 
 /**
  * Created by ym on 2016/10/15.
@@ -40,6 +38,8 @@ public class ImageDataListRecyclerAdapter
         public TextView mTextView;
         public CheckBox mCheckBox;
 
+        public ExpandImageDialogFragment mExpandImageDialogFragment;
+
         public ItemViewHolder(View itemView) {
 
             super(itemView);
@@ -48,22 +48,21 @@ public class ImageDataListRecyclerAdapter
             mCheckBox = (CheckBox)itemView.findViewById(R.id.checkbox_analyze);
             mCardView = itemView;
 
+
             mImageView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    Log.d("mImageDialog","click image");
 
                     int position = Integer.parseInt((mTextView.getText()).toString()) - 1;
-
                     //File imageFile = new File(mCapturedImageList.get(position).getFilePath());
                     //BitmapFactory.Options options = new BitmapFactory.Options();
-                    //options.inJustDecodeBounds = false;
-                    //decodeFile(imageFile.getAbsolutePath(), options);
-                    //Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
-                    ExpandImageDialogFragment exImageDialogFragment = ExpandImageDialogFragment.newInstance(mCapturedImageList.get(position).getFilePath());
-                    exImageDialogFragment.show(tabMainActivity.getFragmentManager(), "ExpandImageDialogFragment");
+                    mExpandImageDialogFragment = ExpandImageDialogFragment.newInstance(mCapturedImageList.get(position).getFilePath());
+                    mExpandImageDialogFragment.show(tabMainActivity.getFragmentManager(), "ExpandImageDialogFragment");
                 }
             });
 
+            //チェックボックスのリスナー
             mCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -80,19 +79,10 @@ public class ImageDataListRecyclerAdapter
     }
 
     //コンストラクタ
-    public ImageDataListRecyclerAdapter(RealmList<CapturedImageObject> capturedImageList, Activity tabMainActivity){
+    public ImageDataListRecyclerAdapter(RealmList<CapturedImageObject> capturedImageList, ArrayList<Bitmap> bitmapList, Activity tabMainActivity){
         this.mCapturedImageList = capturedImageList;
         this.tabMainActivity = tabMainActivity;
-        this.mBitmapList = new ArrayList<Bitmap>(mCapturedImageList.size());
-
-        for(int i = 0; i < mCapturedImageList.size(); i++){
-            File imageFile = new File(mCapturedImageList.get(i).getFilePath());
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = false;
-            options.inSampleSize = 4;
-            Bitmap imageBitmap = decodeFile(imageFile.getAbsolutePath(), options);
-            mBitmapList.add(imageBitmap);
-        }
+        this.mBitmapList = bitmapList;
     }
 
     @Override

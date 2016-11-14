@@ -60,6 +60,10 @@ import jp.techacademy.yoshihiro.minagawa.tablayouttest.R;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.CapturedImageObject;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.MeasuredDateAndDataObject;
 import jp.techacademy.yoshihiro.minagawa.tablayouttest.realmobject.UserObject;
+import jp.techacademy.yoshihiro.minagawa.tablayouttest.ui.CustomSeekbar;
+
+import static android.R.attr.button;
+import static android.widget.Toast.makeText;
 
 public class CameraActivity extends Activity implements CameraInterface, SensorEventListener{
 
@@ -79,6 +83,8 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
 
     //idをインテントで入手するためのメンバ変数
     int mId;
+
+    private static Toast mToast;
 
     private int REQUEST_CODE_CAMERA_PERMISSION = 0x01;
     private int REQUEST_WRITE_EXTERNAL_STORAGE_PERMISSION = 0x02;
@@ -101,8 +107,11 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
     private Button mBtn_reset;
     private SeekBar mSbISO;
     private SeekBar mSbExopsureTime;
+    private CustomSeekbar mCSbFocusDistance;
     private Range<Integer> mRangeISO;
     private Range<Long> mRangeExposureTime;
+    private Range mRangeFocusDistance;
+    private float mMinimumLens;
 
     private FrameLayout mFrameLayout;
     private View mCameraView;
@@ -111,6 +120,7 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
     private int mISO;
     private long mDurationTime;
     private long mExposureTime;
+    private float mFocusDistance;
 
     private String mUserName;
 
@@ -125,7 +135,6 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
     RotateAnimation mRotateAnimation;
 
     private Toast mConfigToast;
-    private Toast mAEToast;
 
     ImageSaver mImageSaver;
 
@@ -185,13 +194,21 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
             public void onClick(View v) {
                 //requestWriteStoragePermission();
 
+                mIbtn_shutter.setEnabled(false);
+
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        mIbtn_shutter.setEnabled(true);
+                    }
+                }, 3000L);
+
                 try {
                     mImageFile = createImageFile();
                 }catch(IOException e){
                     e.printStackTrace();
                 }
                 mCamera.takePicture(mIsAEState);
-
             }
         });
 
@@ -208,12 +225,7 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
                 }else if(mFrameLayout.getChildCount() == 2) {
                     mFrameLayout.removeView(mCameraConfigView);
                 }else if(mFrameLayout.getChildCount() !=2 && mIsAEState == true){
-                    if(mAEToast != null) {
-                        mAEToast.cancel();
-                        mAEToast = null;
-                    }
-                    mAEToast = Toast.makeText(CameraActivity.this, "Turn OFF AE !!", Toast.LENGTH_SHORT);
-                    mAEToast.show();
+                    toast("Turn OFF AE !!");
 
                 }
             }
@@ -229,14 +241,14 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
                 mIsAEState = !mIsAEState;
                 mIbtn_ae.setActivated(mIsAEState);
                 if(mIsAEState == true){
-                    mCamera.changeAEON();
+                    mCamera.changeCameraCondition(mIsAFState, mIsAEState);
 
                     //カメラコンフィグが出ていたら消す
                     if(mFrameLayout.getChildCount() == 2){
                         mFrameLayout.removeView(mCameraConfigView);
                     }
                 }else if(mIsAEState == false){
-                    mCamera.changeAEOFF();
+                    mCamera.changeCameraCondition(mIsAFState, mIsAEState);
                 }
             }
         });
@@ -251,8 +263,12 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
                 mIsAFState = !mIsAFState;
                 mIbtn_af.setActivated(mIsAFState);
                 if(mIsAFState == true){
+                    mCSbFocusDistance.setEnabled(false);
+                    mCSbFocusDistance.setVisibility(View.INVISIBLE);
                     //mCamera.changeAFON();
                 }else if(mIsAFState == false){
+                    mCSbFocusDistance.setEnabled(true);
+                    mCSbFocusDistance.setVisibility(View.VISIBLE);
                     //mCamera.changeAFOFF();
                 }
             }
@@ -267,6 +283,29 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
             }
         });
 
+        //FocusDistanceを変えるCustomSeekbarの設定
+        mCSbFocusDistance = (CustomSeekbar)findViewById(R.id.seekbar_focusdist);
+        mCSbFocusDistance.setEnabled(false);
+        mCSbFocusDistance.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                //mFocusDistance =(((float)progress)*mMinimumLens/100);
+                //mCamera.changeExposureParam(mISO, mExposureTime, mDurationTime, mFocusDistance);
+                //Log.d("mCameraActivity", "focus : " + mFocusDistance);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+
+        //ここからCameraConfigViewの設定
         //SeekBar ISOの設定(CameraCongigView)
         mSbISO = (SeekBar)mCameraConfigView.findViewById(R.id.seekBar_iso);
         mSbISO.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -291,9 +330,7 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
                 mConfigToast.show();
 
                 //seekbarで設定された値を入力する
-                mCamera.changeExposureParam(mISO, mExposureTime, mDurationTime);
-
-
+                mCamera.changeExposureParam(mISO, mExposureTime, mDurationTime, 0);
             }
 
             @Override
@@ -330,7 +367,7 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
                 mConfigToast.show();
                 //Log.d("mTestCustomCamera" , "DurationTime = " + mDurationTime);
 
-                mCamera.changeExposureParam(mISO, mExposureTime, mDurationTime);
+                mCamera.changeExposureParam(mISO, mExposureTime, mDurationTime, mFocusDistance);
             }
 
             @Override
@@ -343,6 +380,7 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
 
             }
         });
+
 
 
         //テスト
@@ -365,6 +403,14 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
     public void onResume() {
         super.onResume();
         mThread.start();
+
+        if(mCamera == null){
+            mCamera = new CustomCamera();
+            mCamera.setCameraActivity(this);
+            mCamera.setInterface(this);
+        }
+
+        Log.d("CameraActivity", "onResume");
 
         List<Sensor> sensors = mSensorManager.getSensorList(Sensor.TYPE_ORIENTATION);
         if(sensors.size() > 0){
@@ -389,7 +435,7 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
             mSensorManager.unregisterListener(this);
             mIsRegisteredSensor = false;
         }
-
+        Log.d("CameraActivity", "OnPause");
         closeCamera();
         mThread.stop();
         super.onPause();
@@ -462,7 +508,8 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
                             @Override
                             public void onImageAvailable(ImageReader reader) {
                                 mThread.getHandler().post(new ImageSaver(reader.acquireLatestImage(), getApplicationContext(), mImageFile));
-                                Toast.makeText(CameraActivity.this, "Finished Save Image", Toast.LENGTH_SHORT).show();
+                                //makeText(CameraActivity.this, "Finished Save Image", Toast.LENGTH_SHORT).show();
+                                toast("Finished Save Image");
                             }
 
                         }, mThread.getHandler());
@@ -505,7 +552,7 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
             //Log.d("mTestCameraActivity", "min = " + mRangeISO.getLower());
             mRangeExposureTime = characteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
             mSbExopsureTime.setMax((int)(mRangeExposureTime.getUpper() - mRangeExposureTime.getLower()));
-
+            mMinimumLens = characteristics.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
             //
 
             manager.openCamera(cameraId, mCamera.stateCallback, mThread.getHandler());
@@ -707,7 +754,7 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
             measuredDateAndDataObject.setExposureTime(expTime);
             capturedImages = new RealmList<CapturedImageObject>();
         }else{
-            //検索をかける
+            //同じ日付のフォルダがないか検索をかける
             RealmResults<MeasuredDateAndDataObject> results = dateAndDataList.where().equalTo("measuredDate", mDate).findAll();
             measuredDateAndDataObject = results.get(0);
             capturedImages = measuredDateAndDataObject.getCapturedImages();
@@ -738,13 +785,12 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
         capturedImageObject.setFilePath(image.getPath());
         capturedImages.add(capturedImageObject);
 
-        //元々あるデータをセットすると初期化されるため、初回のみセットする
+        //元々あるデータ(getしたRealmオブジェクト)を再度セットすると初期化されるため、初回のみセットする
         if(mCaptNum == 0){
             measuredDateAndDataObject.setDirectoryPath(ImageFolder.getPath());
             measuredDateAndDataObject.setCapturedImages(capturedImages);
             dateAndDataList.add(measuredDateAndDataObject);
         }
-
 
         //ここでもう一度UserにDataAndDateListをセットすると初期化されるのでコメントアウト・・・
         //mUserObject.setMeasureDataAndDateList(dateAndDataList);
@@ -816,10 +862,11 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
     }
 
     //AEmode時の最適なDurationFrame, ISO, ExposureTimeを受け取る
-    public void setCameraParam(int ISO, long ExposureTime, long DurationTime){
+    public void setCameraParam(int ISO, long ExposureTime, long DurationTime, float FocusDistance){
         mISO = ISO;
         mExposureTime = ExposureTime;
         mDurationTime = DurationTime;
+        mFocusDistance = FocusDistance;
         mSbISO.setProgress(mISO);
         mSbExopsureTime.setProgress((int)mDurationTime);
     }
@@ -837,6 +884,21 @@ public class CameraActivity extends Activity implements CameraInterface, SensorE
         return false;
     }
 
+    public void toast(String message){
+        if(mToast != null){
+            mToast.cancel();
+        }
+
+        mToast = Toast.makeText(this, message, Toast.LENGTH_SHORT);
+        mToast.show();
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mToast.cancel();
+            }
+        }, 1000L);
+    }
 
 
 }

@@ -37,8 +37,11 @@ public class MeanIntensityCalcTask implements Callable<Double> {
         for(int x = 0; x < mRect.width; x++){
             for(int y = 0; y < mRect.height; y++){
                 //Log.d("mCalcTask", "dstMat (y,x) = (" + y + "," + x+") = " + dstMat.get(y, x)[0]);
-                count++;
-                sum += dstMat.get(y, x)[0];
+                double[] value = dstMat.get(y,x);
+                if(value[0] != 0) {
+                    sum += dstMat.get(y, x)[0];
+                    count++;
+                }
             }
         }
 
